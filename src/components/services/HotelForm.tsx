@@ -2,11 +2,8 @@
 import { useEffect } from 'react'
 import { QuoteItem } from '@/types/database'
 
-// src/components/services/HotelForm.tsx
 import { buildHotelDescription } from '@/lib/description-builder'
 
-// src/components/services/FlightForm.tsx
-import { buildFlightDescription } from '@/lib/description-builder'
 
 import AutocompleteInput from '@/components/AutocompleteInput'
 import NumberStepper from '@/components/NumberStepper'
