@@ -1,12 +1,6 @@
 'use client'
 import { QuoteItem } from '@/types/database'
-
-// src/components/services/HotelForm.tsx
-import { buildHotelDescription } from '@/lib/description-builder'
-
-// src/components/services/FlightForm.tsx
 import { buildFlightDescription } from '@/lib/description-builder'
-
 import AutocompleteInput from '@/components/AutocompleteInput'
 
 const S = { border:'1px solid var(--color-border)', background:'var(--color-surface)' }
@@ -56,7 +50,6 @@ export default function FlightForm({ data, onChange }: Props) {
           <input type="date" value={data.return_date||''} min={data.departure_date||undefined} required onChange={e=>set('return_date',e.target.value)} style={inp} />
         </div>
       </div>
-      {/* Aller */}
       <div style={{ padding:'1rem', borderRadius:'0.75rem', background:'var(--color-surface-offset)' }}>
         <p style={{ fontSize:'0.75rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em',
           color:'var(--color-primary)', marginBottom:'0.75rem' }}>✈ Vol aller — {org} → {dst}</p>
@@ -71,7 +64,6 @@ export default function FlightForm({ data, onChange }: Props) {
           </div>
         </div>
       </div>
-      {/* Retour */}
       <div style={{ padding:'1rem', borderRadius:'0.75rem', background:'var(--color-surface-offset)' }}>
         <p style={{ fontSize:'0.75rem', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em',
           color:'var(--color-primary)', marginBottom:'0.75rem' }}>✈ Vol retour — {dst} → {org}</p>
@@ -86,7 +78,6 @@ export default function FlightForm({ data, onChange }: Props) {
           </div>
         </div>
       </div>
-      {/* Toggle bagages */}
       <label style={{ display:'flex', alignItems:'center', gap:'0.75rem', cursor:'pointer' }}>
         <div style={{ position:'relative', width:44, height:24, borderRadius:12,
           background: data.includes_baggage!==false ? 'var(--color-primary)' : 'var(--color-border)',
