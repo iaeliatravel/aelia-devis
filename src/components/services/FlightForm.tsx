@@ -1,6 +1,12 @@
 'use client'
 import { QuoteItem } from '@/types/database'
+
+// src/components/services/HotelForm.tsx
+import { buildHotelDescription } from '@/lib/description-builder'
+
+// src/components/services/FlightForm.tsx
 import { buildFlightDescription } from '@/lib/description-builder'
+
 import AutocompleteInput from '@/components/AutocompleteInput'
 
 const S = { border:'1px solid var(--color-border)', background:'var(--color-surface)' }
