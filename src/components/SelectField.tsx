@@ -6,24 +6,20 @@ interface Props {
   onChange: (value: string) => void
   options: { value: string; label: string }[]
   required?: boolean
+  placeholder?: string
 }
 
-export default function SelectField({ label, value, onChange, options, required }: Props) {
+export default function SelectField({ label, value, onChange, options, required, placeholder }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
       {label && (
-        <label
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            color: 'var(--color-text-muted)',
-          }}
-        >
+        <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>
           {label} {required && <span style={{ color: 'var(--color-error)' }}>*</span>}
         </label>
       )}
       <select
         value={value}
+        required={required}
         onChange={e => onChange(e.target.value)}
         style={{
           padding: '0.5rem 0.75rem',
@@ -33,9 +29,10 @@ export default function SelectField({ label, value, onChange, options, required 
           border: '1px solid var(--color-border)',
           background: 'var(--color-surface)',
           cursor: 'pointer',
+          width: '100%',
         }}
       >
-        <option value="">— Sélectionner —</option>
+        <option value="">{placeholder ?? '— Sélectionner —'}</option>
         {options.map(opt => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
