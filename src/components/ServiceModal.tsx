@@ -120,7 +120,7 @@ export default function ServiceModal({ open, onClose, onSave, editItem }: Props)
               {data.description && (
                 <div style={{ padding:'0.75rem 1rem', borderRadius:'0.75rem',
                   background:'var(--color-primary-highlight)', border:'1px solid var(--color-primary)',
-                  borderOpacity:'0.3' }}>
+                  }}>
                   <p style={{ fontSize:'0.6875rem', fontWeight:700, textTransform:'uppercase',
                     letterSpacing:'0.05em', color:'var(--color-primary)', marginBottom:4 }}>
                     Aperçu de la description
