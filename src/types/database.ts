@@ -85,4 +85,6 @@ export interface Quote {
   items?: QuoteItem[]
   created_at: string
   updated_at: string
+  manual_profit?: number | null
+  manual_profit_enabled?: boolean
 }
