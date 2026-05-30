@@ -1,6 +1,6 @@
 'use client'
 import ManualProfitSection from './ManualProfitSection'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
@@ -24,7 +24,7 @@ const STATUS = [
   { value: 'rejected', label: '❌ Refusé' },
   { value: 'expired',  label: '⏰ Expiré' },
 ]
-const S = { border: '1px solid var(--color-border)', background: 'var(--color-surface)' }
+const S   = { border: '1px solid var(--color-border)', background: 'var(--color-surface)' }
 const inp = { ...S, padding: '0.5rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.875rem', outline: 'none', width: '100%' } as React.CSSProperties
 
 interface Props {
@@ -34,20 +34,19 @@ interface Props {
 }
 
 export default function QuoteEditor({ mode, quote, onCreate }: Props) {
-  const [agency, setAgency]           = useState<AgencyConfig | null>(null)
-  const [items, setItems]             = useState<QuoteItem[]>(quote?.items || [])
-  const [clientName, setClientName]   = useState(quote?.client?.name || '')
-  const [clientPhone, setClientPhone] = useState(quote?.client?.phone || '')
-  const [remarks, setRemarks]         = useState(quote?.remarks || '')
-  const [status, setStatus]           = useState(quote?.status || 'draft')
+  const [agency, setAgency]             = useState<AgencyConfig | null>(null)
+  const [items, setItems]               = useState<QuoteItem[]>(quote?.items || [])
+  const [clientName, setClientName]     = useState(quote?.client?.name || '')
+  const [clientPhone, setClientPhone]   = useState(quote?.client?.phone || '')
+  const [remarks, setRemarks]           = useState(quote?.remarks || '')
+  const [status, setStatus]             = useState(quote?.status || 'draft')
   const [validityDays, setValidityDays] = useState(quote?.validity_days || 7)
-  const [modalOpen, setModalOpen]     = useState(false)
-  const [editItem, setEditItem]       = useState<Partial<QuoteItem> | null>(null)
-  const [saving, setSaving]           = useState(false)
-  const [saved, setSaved]             = useState(false)
-  const [shareOpen, setShareOpen]     = useState(false)
-  // NEW MODE validation: nom OU téléphone obligatoire
-  const [newError, setNewError]       = useState('')
+  const [modalOpen, setModalOpen]       = useState(false)
+  const [editItem, setEditItem]         = useState<Partial<QuoteItem> | null>(null)
+  const [saving, setSaving]             = useState(false)
+  const [saved, setSaved]               = useState(false)
+  const [shareOpen, setShareOpen]       = useState(false)
+  const [newError, setNewError]         = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -133,7 +132,7 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500)
   }
 
-  /* ── NEW MODE ─────────────────────────────────────────────── */
+  /* ── NEW MODE ── */
   if (mode === 'new') {
     const canCreate = clientName.trim() || clientPhone.trim()
     return (
@@ -179,7 +178,7 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
     )
   }
 
-  /* ── EDIT MODE ────────────────────────────────────────────── */
+  /* ── EDIT MODE ── */
   return (
     <div style={{ padding: '1.5rem', maxWidth: 1200, margin: '0 auto' }} className="animate-fadeIn">
       {/* Header */}
@@ -266,7 +265,6 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
                         onDelete={handleDelete} />
                     ))}
                   </div>
-                  
                 </SortableContext>
               </DndContext>
             )}
@@ -298,7 +296,7 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
               ))}
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem',
                 display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                <span style={{ color: 'var(--color-text-muted)' }}>Bénéfice net</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>Bénéfice net (auto)</span>
                 <span style={{ fontWeight: 700, color: 'var(--color-success)' }}>+{fmt(totals.profit)} DA</span>
               </div>
               {totals.total_cost > 0 && (
@@ -310,6 +308,8 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
                 </div>
               )}
             </div>
+
+            {/* Validité */}
             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)' }}>Validité (jours)</label>
@@ -318,12 +318,15 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-              <ManualProfitSection
-                quoteId={quote.id}
-                initialValue={quote.manual_profit ?? null}
-                enabled={quote.manual_profit_enabled ?? false}
-              />
+            {/* Bénéfice manuel */}
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+              {quote && (
+                <ManualProfitSection
+                  quoteId={quote.id}
+                  initialValue={quote.manual_profit ?? null}
+                  enabled={quote.manual_profit_enabled ?? false}
+                />
+              )}
             </div>
           </div>
 
@@ -334,6 +337,18 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
               {agency.address && <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{agency.address}</p>}
               {agency.city    && <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{agency.city}</p>}
               {agency.phone   && <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>{agency.phone}</p>}
+              {agency.logo_url ? (
+                <div style={{ marginTop: '0.625rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <img src={agency.logo_url} alt="Logo" style={{ width: 32, height: 32, objectFit: 'contain',
+                    borderRadius: 6, border: '1px solid var(--color-border)' }} />
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-success)' }}>✅ Logo configuré</span>
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.5rem',
+                  background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '0.375rem 0.625rem' }}>
+                  ⚠️ Pas de logo — cliquez sur ⚙️ Agence pour en ajouter un
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -346,9 +361,15 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
         editItem={editItem}
       />
 
+      {/* ── PARTAGE : on passe validity_days du state (valeur actuelle, même non sauvegardée) ── */}
       {shareOpen && quote && agency && (
         <ClientShareModal
-          quote={{ ...quote, items, client: { id: quote.client_id || '', name: clientName, phone: clientPhone, created_at: '' } }}
+          quote={{
+            ...quote,
+            items,
+            validity_days: validityDays,   // ← valeur courante du champ
+            client: { id: quote.client_id || '', name: clientName, phone: clientPhone, created_at: '' }
+          }}
           agency={agency}
           onClose={() => setShareOpen(false)}
         />
