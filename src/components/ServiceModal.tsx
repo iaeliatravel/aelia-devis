@@ -1,182 +1,163 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { QuoteItem, ServiceType } from '@/types/database'
-import { calcItemTotals } from '@/lib/quotes'
-import { buildDescription } from '@/lib/description-builder'
-import { saveItemSuggestions } from '@/lib/suggestions'
-import HotelForm    from './services/HotelForm'
-import FlightForm   from './services/FlightForm'
-import TransferForm from './services/TransferForm'
-import OtherForm    from './services/OtherForm'
-
-const TYPES: { type: ServiceType; icon: string; label: string }[] = [
-  { type:'hotel',    icon:'🏨', label:'Réservation Hôtel' },
-  { type:'flight',   icon:'✈️', label:'Billet d\'avion' },
-  { type:'transfer', icon:'🚐', label:'Transfert' },
-  { type:'other',    icon:'📋', label:'Autre prestation' },
-]
-
-function defaultItem(type: ServiceType): Partial<QuoteItem> {
-  return { service_type:type, quantity:1, unit_cost:0, margin_pct:0,
-    includes_baggage:true, adults:2, children:0, passengers:1,
-    luggage_count:0, transfer_type:'Aéroport-Hôtel-Aéroport', description:'' }
-}
+import { QuoteItem } from '@/types/database'
+import HotelForm     from './services/HotelForm'
+import FlightForm    from './services/FlightForm'
+import TransferForm  from './services/TransferForm'
+import OtherForm     from './services/OtherForm'
 
 interface Props {
-  open: boolean; onClose: () => void
-  onSave: (item: Partial<QuoteItem>) => Promise<void>
-  editItem?: Partial<QuoteItem> | null
+  open: boolean
+  onClose: () => void
+  onSave: (data: Partial<QuoteItem>) => void
+  editItem: Partial<QuoteItem> | null
 }
 
+type ServiceType = 'hotel' | 'flight' | 'transfer' | 'other'
+
+const SERVICES: { id: ServiceType; icon: string; label: string; desc: string; color: string; bg: string }[] = [
+  { id: 'hotel',    icon: '🏨', label: 'Hôtel',       desc: 'Réservation, nuitées, type de pension', color: '#92400e', bg: '#fef3c7' },
+  { id: 'flight',   icon: '✈️', label: 'Vol',          desc: 'Billets avion aller-retour / simple',    color: '#1e40af', bg: '#dbeafe' },
+  { id: 'transfer', icon: '🚐', label: 'Transfert',    desc: 'Aéroport ↔ Hôtel, véhicule, bagages',   color: '#065f46', bg: '#d1fae5' },
+  { id: 'other',    icon: '📋', label: 'Autre',        desc: 'Excursion, visa, assurance, etc.',       color: '#374151', bg: '#f3f4f6' },
+]
+
 export default function ServiceModal({ open, onClose, onSave, editItem }: Props) {
-  const [step, setStep]   = useState<'select'|'form'>(editItem?'form':'select')
-  const [data, setData]   = useState<Partial<QuoteItem>>(editItem||defaultItem('hotel'))
-  const [saving, setSaving] = useState(false)
+  const [step, setStep] = useState<'choose' | 'form'>('choose')
+  const [type, setType] = useState<ServiceType>('hotel')
 
   useEffect(() => {
-    if (!open) return
-    if (editItem) { setData(editItem); setStep('form') }
-    else { setData(defaultItem('hotel')); setStep('select') }
+    if (open) {
+      if (editItem?.service_type) {
+        setType(editItem.service_type as ServiceType)
+        setStep('form')
+      } else {
+        setStep('choose')
+      }
+    }
   }, [open, editItem])
-
-  const handleSave = async () => {
-    setSaving(true)
-    const withDesc = { ...data, description: buildDescription(data) }
-    const computed = calcItemTotals(withDesc)
-    await saveItemSuggestions(computed as Record<string,unknown>)
-    await onSave(computed)
-    setSaving(false)
-    onClose()
-  }
-
-  const unitCost  = Number(data.unit_cost) || 0
-  const qty       = Number(data.quantity)  || 1
-  const marginPct = Number(data.margin_pct)|| 0
-  const prixClient = unitCost * (1 + marginPct/100) * qty
-  const fmt = (n:number) => n.toLocaleString('fr-DZ',{minimumFractionDigits:0})
-  const currentType = TYPES.find(t=>t.type===data.service_type)
-  const S = { border:'1px solid var(--color-border)', background:'var(--color-surface)' }
 
   if (!open) return null
 
+  function handleSave(data: Partial<QuoteItem>) {
+    onSave({ ...data, service_type: type })
+    onClose()
+  }
+
+  // Styles constants — tout en variables inline pour 100% blanc opaque
+  const overlayStyle: React.CSSProperties = {
+    position: 'fixed', inset: 0, zIndex: 300,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '1rem',
+  }
+  const backdropStyle: React.CSSProperties = {
+    position: 'absolute', inset: 0,
+    background: 'rgba(0,0,0,0.55)',
+  }
+  const panelStyle: React.CSSProperties = {
+    position: 'relative',
+    width: '100%',
+    maxWidth: step === 'choose' ? 480 : 680,
+    maxHeight: '92vh',
+    overflowY: 'auto',
+    borderRadius: '1.25rem',
+    background: '#ffffff',       // ← blanc pur absolu
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 24px 80px rgba(0,0,0,0.22)',
+    color: '#111827',            // ← texte foncé absolu
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+  }
+  const headerStyle: React.CSSProperties = {
+    position: 'sticky', top: 0, zIndex: 2,
+    padding: '1.25rem 1.5rem',
+    borderBottom: '1px solid #e5e7eb',
+    background: '#ffffff',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  }
+
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:50, display:'flex', alignItems:'flex-end',
-      justifyContent:'center' }} onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(4px)' }} onClick={onClose} />
-      <div style={{ position:'relative', width:'100%', maxWidth:680, borderRadius:'1rem 1rem 0 0',
-        background:'var(--color-surface-2)', border:'1px solid var(--color-border)',
-        boxShadow:'var(--shadow-lg)', maxHeight:'92dvh', display:'flex', flexDirection:'column',
-        overflow:'hidden' }}>
+    <div style={overlayStyle}>
+      <div style={backdropStyle} onClick={onClose} />
+
+      <div style={panelStyle}>
         {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-          padding:'1rem 1.5rem', borderBottom:'1px solid var(--color-border)', flexShrink:0 }}>
-          <div>
-            <h2 style={{ fontSize:'1rem', fontWeight:600 }}>
-              {editItem ? `Modifier — ${currentType?.icon} ${currentType?.label}`
-                : step==='select' ? 'Ajouter une prestation'
-                : `${currentType?.icon} ${currentType?.label}`}
-            </h2>
-            {step==='form' && !editItem && (
-              <button onClick={()=>setStep('select')} style={{ fontSize:'0.75rem', marginTop:2,
-                color:'var(--color-primary)', background:'none', border:'none', cursor:'pointer' }}>
-                ← Changer de type
+        <div style={headerStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            {step === 'form' && !editItem?.service_type && (
+              <button
+                onClick={() => setStep('choose')}
+                style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem',
+                  border: '1px solid #e5e7eb', background: '#f3f4f6',
+                  cursor: 'pointer', fontSize: '0.8125rem', color: '#374151' }}>
+                ← Retour
               </button>
             )}
-          </div>
-          <button onClick={onClose} style={{ width:32, height:32, borderRadius:'0.5rem',
-            border:'1px solid var(--color-border)', background:'var(--color-surface)',
-            cursor:'pointer', fontSize:'1rem' }}>✕</button>
-        </div>
-
-        {/* Body */}
-        <div style={{ overflowY:'auto', flex:1, padding:'1.5rem' }}>
-          {/* Type selector */}
-          {step==='select' && (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem' }}>
-              {TYPES.map(t => (
-                <button key={t.type} onClick={()=>{ setData(defaultItem(t.type)); setStep('form') }}
-                  style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.75rem',
-                    padding:'1.5rem', borderRadius:'1rem', border:'2px solid var(--color-border)',
-                    background:'var(--color-surface)', cursor:'pointer', transition:'all 0.15s',
-                    fontSize:'0.9375rem', fontWeight:600 }}
-                  onMouseEnter={e=>{ const b=e.currentTarget; b.style.borderColor='var(--color-primary)'; b.style.background='var(--color-primary-highlight)' }}
-                  onMouseLeave={e=>{ const b=e.currentTarget; b.style.borderColor='var(--color-border)'; b.style.background='var(--color-surface)' }}>
-                  <span style={{ fontSize:'2.5rem' }}>{t.icon}</span>
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Form */}
-          {step==='form' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-              {data.service_type==='hotel'    && <HotelForm    data={data} onChange={setData} />}
-              {data.service_type==='flight'   && <FlightForm   data={data} onChange={setData} />}
-              {data.service_type==='transfer' && <TransferForm data={data} onChange={setData} />}
-              {data.service_type==='other'    && <OtherForm    data={data} onChange={setData} />}
-
-              {/* Description preview */}
-              {data.description && (
-                <div style={{ padding:'0.75rem 1rem', borderRadius:'0.75rem',
-                  background:'var(--color-primary-highlight)', border:'1px solid var(--color-primary)',
-                  }}>
-                  <p style={{ fontSize:'0.6875rem', fontWeight:700, textTransform:'uppercase',
-                    letterSpacing:'0.05em', color:'var(--color-primary)', marginBottom:4 }}>
-                    Aperçu de la description
-                  </p>
-                  <p style={{ fontSize:'0.8125rem', lineHeight:1.6 }}>{data.description}</p>
-                </div>
-              )}
-
-              {/* Pricing */}
-              <div style={{ borderTop:'1px solid var(--color-border)', paddingTop:'1rem' }}>
-                <p style={{ fontSize:'0.6875rem', fontWeight:700, textTransform:'uppercase',
-                  letterSpacing:'0.05em', color:'var(--color-text-muted)', marginBottom:'0.75rem' }}>
-                  💰 Tarification
+            <div>
+              <h2 style={{ fontWeight: 700, fontSize: '1rem', color: '#111827' }}>
+                {step === 'choose'
+                  ? '🛎 Ajouter une prestation'
+                  : editItem?.service_type
+                    ? `✏️ Modifier — ${SERVICES.find(s => s.id === type)?.label}`
+                    : `➕ ${SERVICES.find(s => s.id === type)?.label}`}
+              </h2>
+              {step === 'choose' && (
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
+                  Choisissez le type de prestation à ajouter
                 </p>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'0.75rem' }}>
-                  {[
-                    { label:'Quantité',           field:'quantity'   as keyof QuoteItem, min:1,   step:1   },
-                    { label:'Coût unitaire (DA)',  field:'unit_cost'  as keyof QuoteItem, min:0,   step:100 },
-                    { label:'Marge (%)',           field:'margin_pct' as keyof QuoteItem, min:0,   step:0.5 },
-                  ].map(({ label, field, min, step: s }) => (
-                    <div key={field} style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                      <label style={{ fontSize:'0.75rem', fontWeight:500, color:'var(--color-text-muted)' }}>{label}</label>
-                      <input type="number" min={min} step={s} value={(data[field] as number)??0}
-                        onChange={e => setData(d => ({ ...d, [field]: parseFloat(e.target.value)||0 }))}
-                        style={{ padding:'0.5rem 0.75rem', borderRadius:'0.5rem', fontSize:'0.875rem', outline:'none', ...S }} />
-                    </div>
-                  ))}
-                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                    <label style={{ fontSize:'0.75rem', fontWeight:500, color:'var(--color-text-muted)' }}>Prix client (DA)</label>
-                    <div style={{ padding:'0.5rem 0.75rem', borderRadius:'0.5rem', fontWeight:700,
-                      fontVariantNumeric:'tabular-nums', border:'1px solid var(--color-border)',
-                      background:'var(--color-surface-offset)', color:'var(--color-primary)', fontSize:'0.875rem' }}>
-                      {fmt(prixClient)}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
+          <button onClick={onClose} style={{
+            padding: '0.25rem 0.5rem', borderRadius: '0.375rem',
+            border: '1px solid #e5e7eb', background: '#f3f4f6',
+            cursor: 'pointer', fontSize: '1rem', color: '#374151',
+          }}>✕</button>
         </div>
 
-        {/* Footer */}
-        {step==='form' && (
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:'0.75rem',
-            padding:'1rem 1.5rem', borderTop:'1px solid var(--color-border)',
-            background:'var(--color-surface)', flexShrink:0 }}>
-            <button onClick={onClose} style={{ padding:'0.5rem 1rem', borderRadius:'0.625rem',
-              border:'1px solid var(--color-border)', cursor:'pointer', background:'transparent', fontSize:'0.875rem' }}>
-              Annuler
-            </button>
-            <button onClick={handleSave} disabled={saving} style={{
-              padding:'0.5rem 1.5rem', borderRadius:'0.625rem', background:'var(--color-primary)',
-              color:'white', border:'none', cursor:'pointer', fontWeight:600, fontSize:'0.875rem',
-              opacity: saving ? 0.6 : 1, transition:'all 0.15s' }}>
-              {saving ? '⏳...' : editItem ? '✅ Mettre à jour' : '✅ Ajouter'}
-            </button>
+        {/* STEP 1 — choisir le type */}
+        {step === 'choose' && (
+          <div style={{ padding: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
+            {SERVICES.map(s => (
+              <button key={s.id} onClick={() => { setType(s.id); setStep('form') }}
+                style={{
+                  padding: '1.25rem',
+                  borderRadius: '0.875rem',
+                  border: '2px solid #e5e7eb',
+                  background: '#f9fafb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                  display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget
+                  el.style.borderColor = s.bg === '#f3f4f6' ? '#6b7280' : s.color
+                  el.style.background  = s.bg
+                  el.style.boxShadow   = '0 4px 16px rgba(0,0,0,0.07)'
+                  el.style.transform   = 'translateY(-1px)'
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget
+                  el.style.borderColor = '#e5e7eb'
+                  el.style.background  = '#f9fafb'
+                  el.style.boxShadow   = 'none'
+                  el.style.transform   = 'none'
+                }}>
+                <span style={{ fontSize: '2rem' }}>{s.icon}</span>
+                <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#111827' }}>{s.label}</span>
+                <span style={{ fontSize: '0.75rem', color: '#6b7280', lineHeight: 1.4 }}>{s.desc}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* STEP 2 — formulaire */}
+        {step === 'form' && (
+          <div style={{ padding: '1.5rem', color: '#111827' }}>
+            {type === 'hotel'    && <HotelForm    editItem={editItem} onSave={handleSave} onCancel={onClose} />}
+            {type === 'flight'   && <FlightForm   editItem={editItem} onSave={handleSave} onCancel={onClose} />}
+            {type === 'transfer' && <TransferForm editItem={editItem} onSave={handleSave} onCancel={onClose} />}
+            {type === 'other'    && <OtherForm    editItem={editItem} onSave={handleSave} onCancel={onClose} />}
           </div>
         )}
       </div>
