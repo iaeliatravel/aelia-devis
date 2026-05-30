@@ -1,4 +1,5 @@
 'use client'
+import ManualProfitSection from './ManualProfitSection'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
@@ -265,6 +266,7 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
                         onDelete={handleDelete} />
                     ))}
                   </div>
+                  
                 </SortableContext>
               </DndContext>
             )}
@@ -314,6 +316,14 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
                 <input type="number" min={1} max={90} value={validityDays}
                   onChange={e => setValidityDays(parseInt(e.target.value) || 7)} style={inp} />
               </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <ManualProfitSection
+                quoteId={quote.id}
+                initialValue={quote.manual_profit ?? null}
+                enabled={quote.manual_profit_enabled ?? false}
+              />
             </div>
           </div>
 
