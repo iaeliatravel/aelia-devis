@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { Quote, AgencyConfig } from '@/types/database'
 
 interface Props {
@@ -8,275 +8,347 @@ interface Props {
   onClose: () => void
 }
 
-const BOARD_LABELS: Record<string, string> = {
-  room_only: 'Chambre seulement', breakfast: 'Petit déjeuner',
-  half_board: 'Demi pension', full_board: 'Pension complète', all_inclusive: 'Tout inclus',
-}
-
 function fmtNum(n: number) {
-  return n.toLocaleString('fr-DZ', { minimumFractionDigits: 2 })
+  // Format compact: pas de .00 inutile, séparateurs de milliers
+  return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
 }
 
 export default function ClientShareModal({ quote, agency, onClose }: Props) {
   const [generating, setGenerating] = useState(false)
-  const [done, setDone]             = useState<'pdf'|'img'|null>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
+  const [done, setDone] = useState<'pdf' | 'img' | null>(null)
 
-  const items = quote.items || []
-  const total = items.reduce((s, i) => s + (i.total_price || 0), 0)
+  const items    = quote.items || []
+  const total    = items.reduce((s, i) => s + (i.total_price || 0), 0)
+  const validity = quote.validity_days || 7
 
-  // ── Build the HTML string for the client document ──────────────────────────
-  const buildHTML = useCallback(() => {
-    const logoUrl = agency.logo_url || ''
+  // Calcul date validité
+  const issueDate    = new Date(quote.issue_date)
+  const validityDate = new Date(issueDate)
+  validityDate.setDate(issueDate.getDate() + validity)
+  const issueDateFmt    = issueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const validityDateFmt = validityDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  const clientLabel = [quote.client?.name, quote.client?.phone].filter(Boolean).join(' | ') || '—'
+  const logoUrl     = agency.logo_url || ''
+
+  const buildHTML = useCallback((): string => {
     const rows = items.map(item => `
       <tr>
-        <td style="padding:14px 16px;border-bottom:1px solid #e8edf3;font-size:13px;line-height:1.55;vertical-align:top;color:#1e293b">${item.description}</td>
-        <td style="padding:14px 16px;border-bottom:1px solid #e8edf3;font-size:13px;text-align:center;vertical-align:top;color:#1e293b;white-space:nowrap">${item.quantity}</td>
-        <td style="padding:14px 16px;border-bottom:1px solid #e8edf3;font-size:13px;text-align:right;vertical-align:top;color:#1e293b;white-space:nowrap;font-variant-numeric:tabular-nums">${fmtNum(item.unit_price)} DA</td>
-        <td style="padding:14px 16px;border-bottom:1px solid #e8edf3;font-size:13px;text-align:right;vertical-align:top;color:#1e293b;white-space:nowrap;font-weight:600;font-variant-numeric:tabular-nums">${fmtNum(item.total_price)} DA</td>
+        <td class="td-desc">${item.description}</td>
+        <td class="td-center">${item.quantity}</td>
+        <td class="td-right">${fmtNum(item.unit_price)}&nbsp;DA</td>
+        <td class="td-right td-bold">${fmtNum(item.total_price)}&nbsp;DA</td>
       </tr>`).join('')
-
-    const issueDate = new Date(quote.issue_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    const clientLabel = [quote.client?.name, quote.client?.phone].filter(Boolean).join(' | ') || '—'
 
     return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=1080"/>
+<title>Devis ${quote.quote_number} — ${agency.name}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital@0;1&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Inter',sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 0}
-  .page{width:1080px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 40px rgba(0,0,0,0.10)}
-  .header{background:linear-gradient(135deg,#0f2c5c 0%,#1e4080 60%,#2a5298 100%);padding:48px 56px 60px;position:relative;overflow:hidden}
-  .header::before{content:'';position:absolute;top:-80px;right:-80px;width:320px;height:320px;background:rgba(255,255,255,0.04);border-radius:50%}
-  .header::after{content:'';position:absolute;bottom:-60px;right:120px;width:200px;height:200px;background:rgba(255,255,255,0.03);border-radius:50%}
-  .header-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}
-  .agency-name{font-size:26px;font-weight:800;color:#fff;letter-spacing:-0.5px;margin-bottom:6px}
-  .agency-info{font-size:13px;color:rgba(255,255,255,0.75);line-height:1.7}
-  .logo-box{width:100px;height:100px;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-  .logo-box img{width:90px;height:90px;object-fit:contain}
-  .logo-placeholder{font-size:11px;color:#94a3b8;text-align:center;padding:8px}
-  .devis-title{font-family:'Playfair Display',serif;font-style:italic;font-size:48px;color:#fff;margin:28px 0 4px;position:relative;z-index:1}
-  .devis-sub{font-size:12px;color:rgba(255,255,255,0.6);font-style:italic;position:relative;z-index:1;margin-bottom:20px}
-  .badges{display:flex;gap:12px;position:relative;z-index:1}
-  .badge{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:30px;padding:8px 20px;text-align:center;backdrop-filter:blur(4px)}
-  .badge-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px}
-  .badge-value{font-size:16px;font-weight:700;color:#fff}
-  .wave{width:100%;height:40px;display:block;margin-top:-1px}
-  .body{padding:40px 56px 56px}
-  .client-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 24px;margin-bottom:36px;display:flex;align-items:center;gap:16px}
-  .client-icon{width:40px;height:40px;background:#e1e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-  .client-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:3px}
-  .client-value{font-size:14px;font-weight:600;color:#1e293b}
-  table{width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0}
-  thead tr{background:#0f2c5c}
-  thead th{padding:14px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:rgba(255,255,255,0.9);font-weight:600}
-  thead th:not(:first-child){text-align:center}
-  thead th:last-child{text-align:right}
-  tbody tr:last-child td{border-bottom:none}
-  tbody tr:nth-child(even){background:#f8fafc}
-  .remarks-section{margin-top:36px;margin-bottom:36px}
-  .remarks-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:10px;font-weight:600}
-  .remarks-text{font-size:13px;color:#475569;line-height:1.6}
-  .total-row{display:flex;justify-content:flex-end;margin-top:24px}
-  .total-box{background:linear-gradient(135deg,#0f2c5c,#1e4080);border-radius:14px;padding:24px 36px;text-align:right;min-width:280px}
-  .total-label{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.7);margin-bottom:8px}
-  .total-amount{font-size:38px;font-weight:800;color:#fff;letter-spacing:-1px;font-variant-numeric:tabular-nums}
-  .total-currency{font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px}
-  .footer{border-top:1px solid #e2e8f0;padding:20px 56px;display:flex;justify-content:space-between;align-items:center}
-  .footer-left{font-size:12px;color:#94a3b8}
-  .footer-accent{width:60px;height:3px;background:linear-gradient(90deg,#0f2c5c,#4f8ef0);border-radius:2px}
+*{margin:0;padding:0;box-sizing:border-box}
+@page{size:A4;margin:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#fff;color:#1e293b;
+  width:1080px;margin:0 auto;
+}
+.page{width:1080px;background:#fff;overflow:hidden}
+
+/* ── HEADER ── */
+.header{
+  background:linear-gradient(135deg,#0f2c5c 0%,#1a3a6e 50%,#1e4d8c 100%);
+  padding:28px 48px 36px;
+  position:relative;overflow:hidden
+}
+.header::before{
+  content:'';position:absolute;top:-100px;right:-60px;
+  width:280px;height:280px;border-radius:50%;
+  background:rgba(255,255,255,0.04)
+}
+.h-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}
+.agency-name{font-size:20px;font-weight:800;color:#fff;letter-spacing:-0.3px;margin-bottom:4px}
+.agency-info{font-size:11.5px;color:rgba(255,255,255,0.72);line-height:1.7}
+.logo-box{
+  width:80px;height:80px;background:#fff;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.22);flex-shrink:0
+}
+.logo-box img{width:72px;height:72px;object-fit:contain}
+.logo-txt{font-size:18px;font-weight:800;color:#1e3a6e;text-align:center}
+.h-bottom{display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;position:relative;z-index:1}
+.devis-word{font-size:36px;font-style:italic;color:#fff;font-weight:300;letter-spacing:-0.5px}
+.devis-sub{font-size:10.5px;color:rgba(255,255,255,0.55);font-style:italic;margin-top:2px}
+.badges{display:flex;gap:10px;align-items:flex-end}
+.badge{
+  background:rgba(255,255,255,0.11);border:1px solid rgba(255,255,255,0.22);
+  border-radius:24px;padding:6px 16px;text-align:center
+}
+.badge-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.55);display:block;margin-bottom:1px}
+.badge-val{font-size:13px;font-weight:700;color:#fff}
+
+/* ── BODY ── */
+.body{padding:28px 48px 44px}
+.client-card{
+  background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;
+  padding:13px 20px;margin-bottom:24px;
+  display:flex;align-items:center;gap:12px
+}
+.client-icon{width:34px;height:34px;background:#dbeafe;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.client-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:2px}
+.client-val{font-size:13px;font-weight:600;color:#1e293b}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:#0f2c5c}
+thead th{
+  padding:10px 14px;text-align:left;
+  font-size:10px;text-transform:uppercase;letter-spacing:0.07em;
+  color:rgba(255,255,255,0.9);font-weight:600
+}
+.th-center{text-align:center}
+.th-right{text-align:right}
+tbody tr{border-bottom:1px solid #e8edf3}
+tbody tr:last-child{border-bottom:none}
+tbody tr:nth-child(even){background:#f8fafc}
+.td-desc{padding:11px 14px;line-height:1.55;vertical-align:top;color:#1e293b}
+.td-center{padding:11px 14px;text-align:center;vertical-align:top;color:#374151;white-space:nowrap}
+.td-right{padding:11px 14px;text-align:right;vertical-align:top;color:#374151;white-space:nowrap;font-variant-numeric:tabular-nums}
+.td-bold{font-weight:700;color:#1e293b}
+
+/* ── TOTAL ── */
+.total-wrap{display:flex;justify-content:flex-end;margin-top:20px}
+.total-box{
+  background:linear-gradient(135deg,#0f2c5c,#1e4d8c);
+  border-radius:12px;padding:18px 28px;text-align:right;min-width:240px
+}
+.total-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.65);margin-bottom:6px}
+.total-amt{font-size:30px;font-weight:800;color:#fff;letter-spacing:-0.5px;font-variant-numeric:tabular-nums}
+.total-cur{font-size:11px;color:rgba(255,255,255,0.55);margin-top:3px}
+
+/* ── VALIDITY ── */
+.validity{
+  margin-top:14px;
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;color:#64748b;justify-content:flex-end
+}
+.validity strong{color:#1e293b}
+
+/* ── REMARKS ── */
+.remarks{margin-top:20px;margin-bottom:0}
+.remarks-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:6px;font-weight:600}
+.remarks-txt{font-size:12px;color:#475569;line-height:1.6}
+
+/* ── FOOTER ── */
+.footer{
+  border-top:1px solid #e2e8f0;padding:14px 48px;
+  display:flex;justify-content:space-between;align-items:center;margin-top:20px
+}
+.footer-txt{font-size:11px;color:#94a3b8}
+.footer-line{width:50px;height:2.5px;background:linear-gradient(90deg,#0f2c5c,#4f8ef0);border-radius:2px}
+
+/* ── PRINT ── */
+@media print{
+  body{width:100%;margin:0}
+  .page{width:100%}
+  @page{margin:0;size:A4 portrait}
+}
 </style>
 </head>
 <body>
 <div class="page">
   <div class="header">
-    <div class="header-top">
+    <div class="h-top">
       <div>
         <div class="agency-name">${agency.name}</div>
-        <div class="agency-info">
-          ${agency.address ? agency.address + '<br>' : ''}
-          ${agency.city ? agency.city + '<br>' : ''}
-          ${agency.phone ? agency.phone : ''}
-        </div>
+        <div class="agency-info">${[agency.address, agency.city, agency.phone].filter(Boolean).join('<br>')}</div>
       </div>
       <div class="logo-box">
-        ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : `<div class="logo-placeholder">${agency.name.substring(0,2).toUpperCase()}</div>`}
+        ${logoUrl
+          ? `<img src="${logoUrl}" alt="Logo" crossorigin="anonymous"/>`
+          : `<div class="logo-txt">${agency.name.substring(0, 2).toUpperCase()}</div>`}
       </div>
     </div>
-    <div class="devis-title">Devis</div>
-    <div class="devis-sub">${agency.footer_note || 'Devis valable 07 jours sous réserve de disponibilité'}</div>
-    <div class="badges">
-      <div class="badge"><span class="badge-label">N° Devis</span><span class="badge-value">${quote.quote_number}</span></div>
-      <div class="badge"><span class="badge-label">Date d&apos;émission</span><span class="badge-value">${issueDate}</span></div>
+    <div class="h-bottom">
+      <div>
+        <div class="devis-word">Devis</div>
+        <div class="devis-sub">${agency.footer_note || 'Sous réserve de disponibilité'}</div>
+      </div>
+      <div class="badges">
+        <div class="badge"><span class="badge-lbl">N° Devis</span><span class="badge-val">${quote.quote_number}</span></div>
+        <div class="badge"><span class="badge-lbl">Date d'émission</span><span class="badge-val">${issueDateFmt}</span></div>
+      </div>
     </div>
   </div>
-  <svg class="wave" viewBox="0 0 1080 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M0,0 C360,40 720,0 1080,20 L1080,0 Z" fill="#1e4080"/>
-  </svg>
+
   <div class="body">
     <div class="client-card">
       <div class="client-icon">👤</div>
       <div>
-        <div class="client-label">Client</div>
-        <div class="client-value">${clientLabel}</div>
+        <div class="client-lbl">Client</div>
+        <div class="client-val">${clientLabel}</div>
       </div>
     </div>
+
     <table>
-      <thead>
-        <tr>
-          <th style="width:55%">Description</th>
-          <th style="width:10%">Qté</th>
-          <th style="width:17%">Prix unitaire</th>
-          <th style="width:18%">Prix total</th>
-        </tr>
-      </thead>
+      <thead><tr>
+        <th style="width:54%">Description</th>
+        <th class="th-center" style="width:9%">Qté</th>
+        <th class="th-right"  style="width:18%">Prix unitaire</th>
+        <th class="th-right"  style="width:19%">Prix total</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${quote.remarks ? `<div class="remarks-section"><div class="remarks-title">Remarques</div><div class="remarks-text">${quote.remarks}</div></div>` : ''}
-    <div class="total-row">
+
+    ${quote.remarks ? `<div class="remarks"><div class="remarks-lbl">Remarques</div><div class="remarks-txt">${quote.remarks}</div></div>` : ''}
+
+    <div class="total-wrap">
       <div class="total-box">
-        <div class="total-label">Total TTC</div>
-        <div class="total-amount">${fmtNum(total)}</div>
-        <div class="total-currency">Dinars Algériens (DA)</div>
+        <div class="total-lbl">Total TTC</div>
+        <div class="total-amt">${fmtNum(total)}</div>
+        <div class="total-cur">Dinars Algériens (DA)</div>
       </div>
     </div>
+
+    <div class="validity">
+      ⏳ Validité : <strong>${validity} jours</strong> — jusqu'au <strong>${validityDateFmt}</strong>
+    </div>
   </div>
+
   <div class="footer">
-    <div class="footer-left">${agency.name} — ${agency.city || 'Algérie'}</div>
-    <div class="footer-accent"></div>
+    <div class="footer-txt">${agency.name} — ${agency.city || 'Algérie'}</div>
+    <div class="footer-line"></div>
   </div>
 </div>
 </body>
 </html>`
-  }, [quote, agency, items, total])
+  }, [quote, agency, items, total, validity, issueDateFmt, validityDateFmt, clientLabel, logoUrl])
 
-  // ── Generate PNG via html2canvas ─────────────────────────────────────────
+  // ── PDF via impression ────────────────────────────────────────────────────
+  async function generatePDF() {
+    setGenerating(true)
+    const printWin = window.open('', '_blank', 'width=1200,height=900')
+    if (!printWin) { alert('Autorisez les popups pour ce site.'); setGenerating(false); return }
+    printWin.document.write(buildHTML())
+    printWin.document.close()
+    await new Promise(r => setTimeout(r, 1000))
+    printWin.print()
+    setDone('pdf')
+    setGenerating(false)
+  }
+
+  // ── IMAGE via html2canvas ─────────────────────────────────────────────────
   async function generateImage() {
     setGenerating(true)
     try {
       const html2canvas = (await import('html2canvas')).default
-      // Render in a hidden iframe-like container
-      const container = document.createElement('div')
-      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;z-index:-1'
-      container.innerHTML = buildHTML()
+      const container   = document.createElement('div')
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;background:#fff;z-index:-1'
+      container.innerHTML     = buildHTML()
       document.body.appendChild(container)
-      // Wait for fonts/images
-      await new Promise(r => setTimeout(r, 800))
+      await new Promise(r => setTimeout(r, 900))
       const pageEl = container.querySelector('.page') as HTMLElement
       const canvas = await html2canvas(pageEl || container, {
-        scale: 1,
+        scale: 1.5,          // 1080 × 1.5 = 1620px — lisible sur mobile
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
-        width: 1080,
         logging: false,
+        imageTimeout: 8000,
       })
       document.body.removeChild(container)
-      const link = document.createElement('a')
-      link.download = `Devis_${quote.quote_number.replace('/', '_')}_client.png`
-      link.href = canvas.toDataURL('image/png')
+      const link      = document.createElement('a')
+      link.download   = `Devis_${quote.quote_number.replace('/', '_')}_client.jpg`
+      link.href       = canvas.toDataURL('image/jpeg', 0.88) // JPEG = plus léger que PNG
       link.click()
       setDone('img')
     } catch (e) {
-      console.error(e)
-      alert('Erreur lors de la génération de l\'image.')
+      console.error(e); alert('Erreur génération image.')
     }
     setGenerating(false)
   }
 
-  // ── Generate PDF via print dialog (most reliable cross-browser) ──────────
-  async function generatePDF() {
-    setGenerating(true)
-    try {
-      const printWin = window.open('', '_blank', 'width=1200,height=800')
-      if (!printWin) { alert('Popup bloquée. Autorisez les popups pour ce site.'); setGenerating(false); return }
-      printWin.document.write(buildHTML())
-      printWin.document.close()
-      await new Promise(r => setTimeout(r, 1200))
-      printWin.print()
-      setDone('pdf')
-    } catch (e) {
-      console.error(e)
-      alert('Erreur lors de la génération du PDF.')
-    }
-    setGenerating(false)
-  }
+  // ── LOGO URL info ─────────────────────────────────────────────────────────
+  const logoInfo = logoUrl
+    ? { ok: true,  msg: `✅ Logo configuré` }
+    : { ok: false, msg: `⚠️ Pas de logo — allez dans ⚙️ Agence → champ "URL du logo" et collez l'URL de votre logo (ex: Supabase Storage ou lien direct https://…)` }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center',
-      justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(4px)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 440, borderRadius: '1.25rem',
-        background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(4px)' }} onClick={onClose} />
+      <div style={{ position:'relative', width:'100%', maxWidth:460, borderRadius:'1.25rem',
+        background:'#ffffff', border:'1px solid #e5e7eb', boxShadow:'0 20px 60px rgba(0,0,0,0.2)',
+        overflow:'hidden', color:'#111827' }}>
+
         {/* Header */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding:'1.25rem 1.5rem', borderBottom:'1px solid #e5e7eb',
+          display:'flex', alignItems:'center', justifyContent:'space-between', background:'#ffffff' }}>
           <div>
-            <h2 style={{ fontWeight: 700, fontSize: '1rem' }}>📤 Partager le devis</h2>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-              Devis {quote.quote_number} · {[quote.client?.name, quote.client?.phone].filter(Boolean).join(' | ') || '—'}
+            <h2 style={{ fontWeight:700, fontSize:'1rem', color:'#111827' }}>📤 Partager le devis client</h2>
+            <p style={{ fontSize:'0.75rem', color:'#6b7280', marginTop:2 }}>
+              Devis {quote.quote_number} · {clientLabel}
             </p>
           </div>
-          <button onClick={onClose} style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem',
-            border: '1px solid var(--color-border)', background: 'transparent', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+          <button onClick={onClose} style={{ padding:'0.25rem 0.5rem', borderRadius:'0.375rem',
+            border:'1px solid #e5e7eb', background:'#f3f4f6', cursor:'pointer', fontSize:'1rem', color:'#374151' }}>✕</button>
         </div>
-        {/* Body */}
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-            Génère un document <strong>client</strong> sans les informations internes (coût brut, bénéfice, marge).
-          </p>
 
-          {/* Preview summary */}
-          <div style={{ background: 'var(--color-surface-offset)', borderRadius: '0.75rem', padding: '1rem',
-            border: '1px solid var(--color-border)' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)',
-              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>
-              Contenu du document
+        {/* Body */}
+        <div style={{ padding:'1.5rem', display:'flex', flexDirection:'column', gap:'0.875rem', background:'#ffffff' }}>
+
+          {/* Logo status */}
+          <div style={{ background: logoInfo.ok ? '#f0fdf4' : '#fffbeb',
+            border: `1px solid ${logoInfo.ok ? '#bbf7d0' : '#fde68a'}`,
+            borderRadius:'0.625rem', padding:'0.75rem 1rem',
+            fontSize:'0.8125rem', color: logoInfo.ok ? '#166534' : '#92400e', lineHeight:1.5 }}>
+            {logoInfo.msg}
+          </div>
+
+          {/* Contenu */}
+          <div style={{ background:'#f9fafb', borderRadius:'0.75rem', padding:'1rem',
+            border:'1px solid #e5e7eb' }}>
+            <p style={{ fontSize:'0.75rem', fontWeight:600, color:'#6b7280',
+              textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'0.625rem' }}>
+              Contenu du document client
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-              {[
-                '✅ Entête agence avec logo',
-                '✅ N° devis & date d\'émission',
-                '✅ Informations client',
-                `✅ ${items.length} prestation(s)`,
-                '✅ Total TTC',
-                quote.remarks ? '✅ Remarques' : null,
-                '🚫 Coût brut, bénéfice, marge (masqués)',
-              ].filter(Boolean).map((line, i) => (
-                <p key={i} style={{ fontSize: '0.8125rem', color: line!.startsWith('🚫') ? 'var(--color-text-muted)' : 'var(--color-text)' }}>
-                  {line}
-                </p>
-              ))}
-            </div>
+            {[
+              '✅ Entête agence + logo',
+              `✅ Devis ${quote.quote_number} — ${issueDateFmt}`,
+              `✅ Validité : ${validity} j (jusqu'au ${validityDateFmt})`,
+              '✅ Informations client',
+              `✅ ${items.length} prestation(s) — Total ${fmtNum(total)} DA`,
+              quote.remarks ? '✅ Remarques' : null,
+              '🚫 Coût brut, marge, bénéfice (masqués)',
+            ].filter(Boolean).map((line, i) => (
+              <p key={i} style={{ fontSize:'0.8125rem', color: (line as string).startsWith('🚫') ? '#9ca3af' : '#111827',
+                paddingBlock:'0.1875rem' }}>{line}</p>
+            ))}
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginTop: '0.25rem' }}>
-            <button onClick={generatePDF} disabled={generating}
-              style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem',
-                background: '#0f2c5c', color: 'white', border: 'none', cursor: generating ? 'wait' : 'pointer',
-                fontWeight: 700, fontSize: '0.9375rem', opacity: generating ? 0.6 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {generating ? '⏳ Génération...' : '📄 Générer PDF (via impression)'}
-            </button>
-            <button onClick={generateImage} disabled={generating}
-              style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem',
-                background: '#0f766e', color: 'white', border: 'none', cursor: generating ? 'wait' : 'pointer',
-                fontWeight: 700, fontSize: '0.9375rem', opacity: generating ? 0.6 : 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {generating ? '⏳ Génération...' : '🖼️ Générer Image PNG (1080px)'}
-            </button>
-          </div>
+          <button onClick={generatePDF} disabled={generating}
+            style={{ width:'100%', padding:'0.875rem', borderRadius:'0.75rem',
+              background:'#0f2c5c', color:'white', border:'none',
+              cursor: generating ? 'wait' : 'pointer', fontWeight:700,
+              fontSize:'0.9375rem', opacity: generating ? 0.6 : 1,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            {generating ? '⏳ Génération...' : '📄 PDF (impression → Enregistrer PDF)'}
+          </button>
+
+          <button onClick={generateImage} disabled={generating}
+            style={{ width:'100%', padding:'0.875rem', borderRadius:'0.75rem',
+              background:'#0f766e', color:'white', border:'none',
+              cursor: generating ? 'wait' : 'pointer', fontWeight:700,
+              fontSize:'0.9375rem', opacity: generating ? 0.6 : 1,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            {generating ? '⏳ Génération...' : '🖼️ Image JPEG (légère, 1080px mobile)'}
+          </button>
 
           {done && (
-            <div style={{ background: '#d1fae5', borderRadius: '0.625rem', padding: '0.75rem 1rem',
-              fontSize: '0.875rem', color: '#065f46', fontWeight: 500, textAlign: 'center' }}>
-              {done === 'pdf' ? '✅ Fenêtre d\'impression ouverte !' : '✅ Image téléchargée !'}
+            <div style={{ background:'#d1fae5', borderRadius:'0.625rem', padding:'0.75rem 1rem',
+              fontSize:'0.875rem', color:'#065f46', fontWeight:500, textAlign:'center' }}>
+              {done === 'pdf' ? '✅ Fenêtre impression ouverte — choisir "Enregistrer en PDF"' : '✅ Image téléchargée !'}
             </div>
           )}
         </div>
