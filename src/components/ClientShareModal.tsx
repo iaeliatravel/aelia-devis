@@ -1,362 +1,453 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Quote, AgencyConfig } from '@/types/database'
 
-interface Props {
-  quote: Quote
-  agency: AgencyConfig
-  onClose: () => void
-}
+type DocType = 'devis' | 'proforma' | 'facture' | 'bon'
+type PayMethod = 'Espèces' | 'Virement bancaire' | 'Chèque' | 'CCP'
+type GenMode = 'print' | 'image'
 
-function fmtNum(n: number) {
-  return new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n)
-}
+interface Props { quote: Quote; agency: AgencyConfig; onClose: () => void }
+
+const e  = (s?: string | null) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+const n  = (v: number) => new Intl.NumberFormat('fr-DZ').format(Math.round(v))
+const fd = (d: Date)   => d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'})
+
+const DOC_TABS = [
+  {id:'devis'    as DocType, icon:'📄', label:'Devis'},
+  {id:'proforma' as DocType, icon:'📋', label:'Facture Proforma'},
+  {id:'facture'  as DocType, icon:'🧾', label:'Facture'},
+  {id:'bon'      as DocType, icon:'💳', label:'Bon de Versement'},
+]
+const PAY_METHODS: PayMethod[] = ['Espèces','Virement bancaire','Chèque','CCP']
+const PAY_ICONS: Record<PayMethod,string> = {'Espèces':'💵','Virement bancaire':'🏦','Chèque':'📝','CCP':'🏛️'}
 
 export default function ClientShareModal({ quote, agency, onClose }: Props) {
+  const [docType,    setDocType]    = useState<DocType>('devis')
+  const [payMethod,  setPayMethod]  = useState<PayMethod>('Espèces')
+  const [bonNotes,   setBonNotes]   = useState('')
   const [generating, setGenerating] = useState(false)
-  const [done, setDone] = useState<'pdf' | 'img' | null>(null)
+  const [done,       setDone]       = useState<'pdf'|'img'|null>(null)
 
   const items    = quote.items || []
-  const total    = items.reduce((s, i) => s + (i.total_price || 0), 0)
+  const totalHT  = items.reduce((s,i) => s+(i.total_price||0), 0)
+  const tva      = totalHT * 0.19
+  const totalTTC = totalHT + tva
   const validity = quote.validity_days || 7
+  const issueDate = new Date(quote.issue_date)
+  const expDate   = new Date(issueDate); expDate.setDate(issueDate.getDate() + validity)
+  const issueDateStr = fd(issueDate)
+  const expDateStr   = fd(expDate)
+  const clientLabel  = [quote.client?.name, quote.client?.phone].filter(Boolean).join(' · ') || '—'
+  const logoUrl      = agency.logo_url || ''
 
-  /* Dates */
-  const issueDate        = new Date(quote.issue_date)
-  const validityDate     = new Date(issueDate)
-  validityDate.setDate(issueDate.getDate() + validity)
-  const issueDateFmt    = issueDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const validityDateFmt = validityDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  /* ── BASE DOC (Devis / Proforma / Facture) ── */
+  function buildBaseHTML(mode: GenMode, dt: 'devis'|'proforma'|'facture'): string {
+    const p = mode === 'print'
+    const fs = (print: number, img: number) => p ? print : img
 
-  const clientLabel = [quote.client?.name, quote.client?.phone].filter(Boolean).join(' | ') || '—'
-  const logoUrl     = agency.logo_url || ''
+    const titles = {
+      devis:    { word:'Devis',            sub: `Valable ${validity} jours — sous réserve de disponibilité` },
+      proforma: { word:'Facture Proforma', sub: 'Document provisoire — non fiscal' },
+      facture:  { word:'Facture',          sub: '' },
+    }
+    const { word, sub } = titles[dt]
+    const displayTotal = dt === 'facture' ? totalTTC : totalHT
+    const displayLabel = dt === 'facture' ? 'Total TTC' : 'Total'
 
-  /* ──────────────────────────────────────────────────────────────
-     HTML TEMPLATE — 794 px (A4 @ 96 dpi) → pas de redimensionnement
-     Marges réduite, polices optimisées pour impression directe
-  ────────────────────────────────────────────────────────────── */
-  const buildHTML = useCallback((): string => {
-    const rows = items.map(item => `
-      <tr>
-        <td class="td-desc">${item.description}</td>
-        <td class="td-center">${item.quantity}</td>
-        <td class="td-right">${fmtNum(item.unit_price)}&nbsp;DA</td>
-        <td class="td-right td-bold">${fmtNum(item.total_price)}&nbsp;DA</td>
+    const metaItems = [
+      { label:'N° Document', val: e(quote.quote_number) },
+      { label:"Date d'émission", val: issueDateStr },
+      ...(dt === 'devis' ? [{ label:"Valide jusqu'au", val: expDateStr }] : []),
+    ]
+
+    const rows = items.map((it, i) => `
+      <tr style="background:${i%2===1?'#f5f8fc':'#fff'}">
+        <td style="padding:${fs(7,9)}px 10px;font-size:${fs(10.5,13)}px;color:#1a2b3c;vertical-align:top;line-height:1.45">${e(it.description)}</td>
+        <td style="padding:${fs(7,9)}px 10px;text-align:center;font-size:${fs(10,12)}px;color:#475569;white-space:nowrap;vertical-align:top">${it.quantity}</td>
+        <td style="padding:${fs(7,9)}px 10px;text-align:right;font-size:${fs(10,12)}px;color:#475569;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums">${n(it.unit_price)}&nbsp;DA</td>
+        <td style="padding:${fs(7,9)}px 10px;text-align:right;font-size:${fs(10,12)}px;font-weight:700;color:#0d2340;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums">${n(it.total_price)}&nbsp;DA</td>
       </tr>`).join('')
 
-    return `<!DOCTYPE html>
-<html lang="fr">
-<head>
+    const tvaBlock = dt === 'facture' ? `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:${fs(12,18)}px">
+        <div style="min-width:${fs(220,280)}px">
+          ${[['Sous-total HT',n(totalHT)+' DA'],['TVA (19%)',n(tva)+' DA']].map(([l,v]) => `
+            <div style="display:flex;justify-content:space-between;padding:${fs(4,6)}px 0;border-bottom:1px solid #e2e8f0">
+              <span style="font-size:${fs(11,13)}px;color:#64748b">${l}</span>
+              <span style="font-size:${fs(11,13)}px;font-weight:500;color:#1e293b;font-variant-numeric:tabular-nums">${v}</span>
+            </div>`).join('')}
+        </div>
+      </div>` : ''
+
+    return `<!DOCTYPE html><html lang="fr"><head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=794"/>
-<title>Devis ${quote.quote_number} — ${agency.name}</title>
+<title>${word} ${e(quote.quote_number)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-@page{size:A4 portrait;margin:8mm}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  background:#fff;color:#1e293b;
-  width:794px;margin:0 auto;font-size:11px;
-}
-.page{width:794px;background:#fff;overflow:hidden}
-
-/* ── HEADER ── */
-.header{
-  background:linear-gradient(135deg,#0f2c5c 0%,#1a3a6e 50%,#1e4d8c 100%);
-  padding:18px 36px 20px;
-  position:relative;overflow:hidden;
-  -webkit-print-color-adjust:exact;print-color-adjust:exact
-}
-.header::before{
-  content:'';position:absolute;top:-80px;right:-50px;
-  width:200px;height:200px;border-radius:50%;
-  background:rgba(255,255,255,0.04)
-}
-.h-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}
-.agency-name{font-size:16px;font-weight:800;color:#fff;letter-spacing:-0.2px;margin-bottom:3px}
-.agency-info{font-size:10px;color:rgba(255,255,255,0.72);line-height:1.65}
-.logo-box{
-  width:64px;height:64px;background:#fff;border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,0.22);flex-shrink:0
-}
-.logo-box img{width:56px;height:56px;object-fit:contain}
-.logo-txt{font-size:15px;font-weight:800;color:#1e3a6e;text-align:center}
-.h-bottom{display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px;position:relative;z-index:1}
-.devis-word{font-size:28px;font-style:italic;color:#fff;font-weight:300;letter-spacing:-0.3px}
-.devis-sub{font-size:9px;color:rgba(255,255,255,0.55);font-style:italic;margin-top:2px}
-.badges{display:flex;gap:8px;align-items:flex-end}
-.badge{
-  background:rgba(255,255,255,0.11);border:1px solid rgba(255,255,255,0.22);
-  border-radius:20px;padding:5px 13px;text-align:center
-}
-.badge-lbl{font-size:8px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.55);display:block;margin-bottom:1px}
-.badge-val{font-size:11px;font-weight:700;color:#fff}
-
-/* ── BODY ── */
-.body{padding:20px 36px 32px}
-.client-card{
-  background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
-  padding:10px 16px;margin-bottom:18px;
-  display:flex;align-items:center;gap:10px
-}
-.client-icon{width:28px;height:28px;background:#dbeafe;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.client-lbl{font-size:8px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:1px}
-.client-val{font-size:12px;font-weight:600;color:#1e293b}
-
-/* ── TABLE ── */
-table{width:100%;border-collapse:collapse;font-size:11px}
-thead tr{background:#0f2c5c;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-thead th{
-  padding:8px 12px;text-align:left;
-  font-size:9px;text-transform:uppercase;letter-spacing:0.06em;
-  color:rgba(255,255,255,0.9);font-weight:600
-}
-.th-center{text-align:center}
-.th-right{text-align:right}
-tbody tr{border-bottom:1px solid #e8edf3}
-tbody tr:last-child{border-bottom:none}
-tbody tr:nth-child(even){background:#f8fafc}
-.td-desc{padding:9px 12px;line-height:1.5;vertical-align:top;color:#1e293b}
-.td-center{padding:9px 12px;text-align:center;vertical-align:top;color:#374151;white-space:nowrap}
-.td-right{padding:9px 12px;text-align:right;vertical-align:top;color:#374151;white-space:nowrap;font-variant-numeric:tabular-nums}
-.td-bold{font-weight:700;color:#1e293b}
-
-/* ── TOTAL ── */
-.total-wrap{display:flex;justify-content:flex-end;margin-top:16px}
-.total-box{
-  background:linear-gradient(135deg,#0f2c5c,#1e4d8c);
-  border-radius:10px;padding:14px 22px;text-align:right;min-width:200px;
-  -webkit-print-color-adjust:exact;print-color-adjust:exact
-}
-.total-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.65);margin-bottom:5px}
-.total-amt{font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.4px;font-variant-numeric:tabular-nums}
-.total-cur{font-size:9px;color:rgba(255,255,255,0.55);margin-top:2px}
-
-/* ── VALIDITY ── */
-.validity{
-  margin-top:12px;
-  display:flex;align-items:center;gap:6px;
-  font-size:10px;color:#64748b;justify-content:flex-end
-}
-.validity strong{color:#1e293b}
-
-/* ── REMARKS ── */
-.remarks{margin-top:16px}
-.remarks-lbl{font-size:8px;text-transform:uppercase;letter-spacing:0.08em;color:#64748b;margin-bottom:5px;font-weight:600}
-.remarks-txt{font-size:11px;color:#475569;line-height:1.55}
-
-/* ── FOOTER ── */
-.footer{
-  border-top:1px solid #e2e8f0;padding:10px 36px;
-  display:flex;justify-content:space-between;align-items:center;margin-top:16px
-}
-.footer-txt{font-size:9.5px;color:#94a3b8}
-.footer-line{width:40px;height:2px;background:linear-gradient(90deg,#0f2c5c,#4f8ef0);border-radius:2px}
-
-/* ── PRINT ── */
-@media print{
-  body{width:100%;margin:0}
-  .page{width:100%}
-}
-</style>
-</head>
+html{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+@page{size:A4;margin:12mm 14mm}
+@media print{html,body{background:#fff!important;width:100%!important}}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a2b3c;background:${p?'#fff':'#e8eef5'};${p?'width:100%':'width:1080px;margin:0 auto'}}
+</style></head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="h-top">
-      <div>
-        <div class="agency-name">${agency.name}</div>
-        <div class="agency-info">${[agency.address, agency.city, agency.phone, agency.email].filter(Boolean).join('<br>')}</div>
-      </div>
-      <div class="logo-box">
-        ${logoUrl
-          ? `<img src="${logoUrl}" alt="Logo" crossorigin="anonymous"/>`
-          : `<div class="logo-txt">${agency.name.substring(0, 2).toUpperCase()}</div>`}
+<div style="background:#fff;${p?'':'border-radius:6px;overflow:hidden;margin:24px auto;max-width:1040px;box-shadow:0 4px 32px rgba(0,0,0,.1)'}">
+
+  <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+    padding:${p?'18px 34px 20px':'26px 48px 28px'};border-bottom:3px solid #1e6fa5;
+    display:flex;justify-content:space-between;align-items:flex-start;background:#fff">
+    <div>
+      <div style="font-size:${fs(16,22)}px;font-weight:800;color:#0d2340">${e(agency.name)}</div>
+      <div style="font-size:${fs(9.5,11.5)}px;color:#6b7f93;line-height:1.75;margin-top:5px">
+        ${[agency.address,agency.city,agency.phone,agency.email].filter(Boolean).map(e).join('<br>')}
       </div>
     </div>
-    <div class="h-bottom">
-      <div>
-        <div class="devis-word">Devis</div>
-        <div class="devis-sub">${agency.footer_note || 'Sous réserve de disponibilité'}</div>
-      </div>
-      <div class="badges">
-        <div class="badge"><span class="badge-lbl">N° Devis</span><span class="badge-val">${quote.quote_number}</span></div>
-        <div class="badge"><span class="badge-lbl">Date d'émission</span><span class="badge-val">${issueDateFmt}</span></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:${fs(8,12)}px">
+      ${logoUrl?`<img src="${logoUrl}" crossorigin="anonymous" style="width:${fs(52,70)}px;height:${fs(52,70)}px;object-fit:contain;border-radius:7px;border:1px solid #e2e8f0;background:#f8fafc" alt="logo"/>`:''}
+      <div style="text-align:right">
+        <div style="font-size:${fs(22,30)}px;font-weight:300;color:#1e6fa5;font-style:italic">${word}</div>
+        ${sub?`<div style="font-size:${fs(9,11)}px;color:#94a3b8;margin-top:3px;font-style:italic">${sub}</div>`:''}
       </div>
     </div>
   </div>
 
-  <div class="body">
-    <div class="client-card">
-      <div class="client-icon">👤</div>
+  <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+    background:#f5f8fc;border-bottom:1px solid #e2e8f0;
+    padding:${p?'9px 34px':'12px 48px'};display:flex;gap:0;flex-wrap:wrap">
+    ${metaItems.map((m,i)=>`
+      <div style="${i>0?`border-left:1px solid #d4dde8;padding-left:${fs(16,22)}px;margin-left:${fs(16,22)}px`:''}">
+        <div style="font-size:${fs(8.5,10)}px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#6b7f93">${m.label}</div>
+        <div style="font-size:${fs(11,14)}px;font-weight:700;color:#0d2340;margin-top:2px;font-variant-numeric:tabular-nums">${m.val}</div>
+      </div>`).join('')}
+  </div>
+
+  <div style="padding:${p?'18px 34px 28px':'24px 48px 40px'}">
+
+    <div style="display:flex;align-items:center;gap:${fs(10,14)}px;
+      border:1px solid #e2e8f0;border-radius:7px;padding:${p?'8px 12px':'11px 16px'};margin-bottom:${fs(14,20)}px">
+      <div style="width:${fs(26,34)}px;height:${fs(26,34)}px;background:#dbeafe;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${fs(13,18)}px;flex-shrink:0">👤</div>
       <div>
-        <div class="client-lbl">Client</div>
-        <div class="client-val">${clientLabel}</div>
+        <div style="font-size:${fs(8.5,10)}px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#6b7f93">${dt==='facture'?'Facturé à':'Client'}</div>
+        <div style="font-size:${fs(12,15)}px;font-weight:700;color:#0d2340;margin-top:2px">${e(clientLabel)}</div>
       </div>
     </div>
 
-    <table>
-      <thead><tr>
-        <th style="width:52%">Description</th>
-        <th class="th-center" style="width:8%">Qté</th>
-        <th class="th-right"  style="width:20%">Prix unitaire</th>
-        <th class="th-right"  style="width:20%">Prix total</th>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${fs(14,20)}px">
+      <thead><tr style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#0d2340">
+        ${['Description','Qté','Prix unitaire','Prix total'].map((h,i)=>`
+          <th style="padding:${fs(7,10)}px 10px;font-size:${fs(8.5,10)}px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.9);text-align:${i===0?'left':'right'}">${h}</th>`).join('')}
       </tr></thead>
-      <tbody>${rows || '<tr><td colspan="4" style="text-align:center;padding:16px;color:#94a3b8;font-style:italic">Aucune prestation</td></tr>'}</tbody>
+      <tbody>${rows||`<tr><td colspan="4" style="padding:${fs(18,24)}px;text-align:center;color:#94a3b8;font-style:italic;font-size:${fs(10.5,13)}px">Aucune prestation</td></tr>`}</tbody>
     </table>
 
-    ${quote.remarks ? `<div class="remarks"><div class="remarks-lbl">Remarques</div><div class="remarks-txt">${quote.remarks}</div></div>` : ''}
+    ${tvaBlock}
 
-    <div class="total-wrap">
-      <div class="total-box">
-        <div class="total-lbl">Total TTC</div>
-        <div class="total-amt">${fmtNum(total)}</div>
-        <div class="total-cur">Dinars Algériens (DA)</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:${fs(10,14)}px">
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+        background:#0d2340;border-radius:8px;padding:${p?'12px 18px':'16px 24px'};text-align:right;min-width:${fs(185,240)}px">
+        <div style="font-size:${fs(8,10)}px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.55);margin-bottom:5px">${displayLabel}</div>
+        <div style="font-size:${fs(20,27)}px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums">${n(displayTotal)}</div>
+        <div style="font-size:${fs(8,10)}px;color:rgba(255,255,255,.4);margin-top:3px">Dinars Algériens (DA)</div>
       </div>
     </div>
 
-    <div class="validity">
-      ⏳ Validité : <strong>${validity} jours</strong> — jusqu'au <strong>${validityDateFmt}</strong>
-    </div>
+    ${dt==='devis'?`<div style="text-align:right;font-size:${fs(9.5,11)}px;color:#64748b;margin-top:${fs(6,10)}px">
+      ⏳ Valable jusqu'au <strong style="color:#0d2340">${expDateStr}</strong>
+    </div>`:''}
+
+    ${quote.remarks?`<div style="margin-top:${fs(13,18)}px;background:#f5f8fc;border:1px solid #e2e8f0;border-radius:7px;padding:${p?'9px 12px':'13px 16px'}">
+      <div style="font-size:${fs(8,10)}px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#6b7f93;margin-bottom:4px">Remarques</div>
+      <div style="font-size:${fs(10.5,13)}px;color:#475569;line-height:1.55">${e(quote.remarks)}</div>
+    </div>`:''}
   </div>
 
-  <div class="footer">
-    <div class="footer-txt">${agency.name} — ${agency.city || 'Algérie'}</div>
-    <div class="footer-line"></div>
+  <div style="border-top:1px solid #e2e8f0;padding:${p?'8px 34px':'11px 48px'};
+    display:flex;justify-content:space-between;align-items:center;background:#f8fafc">
+    <span style="font-size:${fs(8.5,10.5)}px;color:#94a3b8">${e(agency.name)}${agency.city?` — ${e(agency.city)}`:''}</span>
+    <span style="font-size:${fs(8.5,10.5)}px;color:#94a3b8">Émis le ${issueDateStr}</span>
   </div>
 </div>
-</body>
-</html>`
-  }, [quote, agency, items, total, validity, issueDateFmt, validityDateFmt, clientLabel, logoUrl])
-
-  /* ── PDF via impression ── */
-  async function generatePDF() {
-    setGenerating(true)
-    const printWin = window.open('', '_blank', 'width=900,height=800')
-    if (!printWin) { alert('Autorisez les popups pour ce site.'); setGenerating(false); return }
-    printWin.document.write(buildHTML())
-    printWin.document.close()
-    await new Promise(r => setTimeout(r, 1200))
-    printWin.print()
-    setDone('pdf')
-    setGenerating(false)
+</body></html>`
   }
 
-  /* ── Image via html2canvas ── */
+  /* ── BON DE VERSEMENT ── */
+  function buildBonHTML(mode: GenMode): string {
+    const p = mode === 'print'
+    const fs = (a: number, b: number) => p ? a : b
+
+    const renderBon = (isArchive: boolean) => {
+      const badge = isArchive
+        ? {txt:'Archive Agence',    bg:'#FAEEDA', color:'#BA7517', border:'#FAC775'}
+        : {txt:'Exemplaire Client', bg:'#E1F5EE', color:'#0F6E56', border:'#9FE1CB'}
+      return `
+    <div style="position:relative;background:#fff;border:.75px solid #d3d1c7;border-radius:${fs(5,8)}px;overflow:hidden;${p?'':'box-shadow:0 2px 16px rgba(0,0,0,.07)'}">
+      <div style="position:absolute;top:${fs(8,10)}px;right:${fs(10,12)}px;
+        font-size:${fs(6.5,8)}px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+        padding:2px 7px;border-radius:3px;background:${badge.bg};color:${badge.color};border:1px solid ${badge.border}">
+        ${badge.txt}
+      </div>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+        background:#1a2540;padding:${fs(10,14)}px ${fs(18,24)}px;display:flex;align-items:center;gap:${fs(10,14)}px">
+        ${logoUrl?`<img src="${logoUrl}" crossorigin="anonymous" style="width:${fs(40,56)}px;height:${fs(40,56)}px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.1)" alt="logo"/>`:''}
+        <div>
+          <div style="font-size:${fs(13,18)}px;font-weight:700;color:#fff;letter-spacing:.03em">${e(agency.name)}</div>
+          <div style="font-size:${fs(8,10)}px;color:rgba(255,255,255,.5);letter-spacing:.08em;text-transform:uppercase;margin-top:2px">Agence de voyages &amp; tourisme</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:${fs(11,15)}px;font-weight:700;color:#F0997B;letter-spacing:.08em;text-transform:uppercase">Bon de Versement</div>
+          <div style="font-size:${fs(9,11)}px;color:rgba(255,255,255,.45);margin-top:3px">N° ${e(quote.quote_number)}</div>
+        </div>
+      </div>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:2.5px;background:#D85A30"></div>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#faf8f4;border-bottom:1px solid #f3f0e8;
+        padding:${fs(7,10)}px ${fs(18,24)}px;display:flex;flex-wrap:wrap;gap:0">
+        ${[
+          {label:'Date',             val:issueDateStr},
+          {label:'Bénéficiaire',     val:e(clientLabel)},
+          {label:'Mode de paiement', val:`${PAY_ICONS[payMethod]} ${payMethod}`},
+        ].map((m,i)=>`
+          <div style="${i>0?`border-left:1px solid #e0ddd5;padding-left:${fs(14,20)}px;margin-left:${fs(14,20)}px`:''}">
+            <div style="font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#888780">${m.label}</div>
+            <div style="font-size:${fs(10.5,13)}px;font-weight:600;color:#2C2C2A;margin-top:2px">${m.val}</div>
+          </div>`).join('')}
+      </div>
+      <div style="padding:${fs(9,12)}px ${fs(18,24)}px 0">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#f3f0e8">
+            <th style="padding:${fs(4,6)}px 8px;font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#888780;text-align:left">Désignation de la prestation</th>
+            <th style="padding:${fs(4,6)}px 8px;font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#888780;text-align:right">Montant (DA)</th>
+          </tr></thead>
+          <tbody>
+            ${items.map((it,i)=>`
+              <tr style="border-bottom:1px dashed ${i===items.length-1?'transparent':'#f3f0e8'}">
+                <td style="padding:${fs(4,6)}px 8px;font-size:${fs(9.5,12)}px;color:#2C2C2A;vertical-align:middle">
+                  <span style="display:inline-flex;align-items:center;justify-content:center;
+                    width:${fs(15,18)}px;height:${fs(15,18)}px;border-radius:50%;
+                    background:#FAECE7;color:#993C1D;font-size:${fs(8,9.5)}px;font-weight:700;margin-right:6px">${i+1}</span>${e(it.description.split('|')[0].trim())}
+                </td>
+                <td style="padding:${fs(4,6)}px 8px;font-size:${fs(9.5,12)}px;font-weight:600;color:#2C2C2A;text-align:right;font-variant-numeric:tabular-nums">${n(it.total_price)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;align-items:stretch;gap:${fs(8,12)}px;padding:${fs(8,12)}px ${fs(18,24)}px ${fs(10,14)}px">
+        <div style="flex:1.5;background:#faf8f4;border-radius:6px;padding:${fs(7,10)}px ${fs(9,12)}px;border:1px solid #D3D1C7;min-height:${fs(44,58)}px">
+          <div style="font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#888780;margin-bottom:3px">Remarques</div>
+          <div style="font-size:${fs(9,11)}px;color:#2C2C2A;line-height:1.5">${e(bonNotes||quote.remarks||'')}</div>
+        </div>
+        <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+          background:#1a2540;border-radius:7px;padding:${fs(9,12)}px ${fs(12,18)}px;
+          display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:${fs(120,150)}px">
+          <div style="font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.5);margin-bottom:4px">Montant versé</div>
+          <div style="font-size:${fs(17,22)}px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1">${n(totalHT)}</div>
+          <div style="font-size:${fs(7.5,9)}px;color:#F0997B;margin-top:3px;font-weight:500">Dinars Algériens</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:${p?'1.5rem':'2rem'};padding:${fs(7,10)}px ${fs(18,24)}px ${fs(10,14)}px;
+        border-top:1px dashed #D3D1C7;margin:0 ${fs(6,8)}px">
+        ${[{l:'Signature du client',s:'Lu et approuvé'},{l:'Cachet &amp; Signature Agence',s:''}].map(sig=>`
+          <div style="flex:1">
+            <div style="font-size:${fs(7.5,9)}px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#888780">${sig.l}</div>
+            ${sig.s?`<div style="font-size:${fs(7,8.5)}px;color:#888780;font-style:italic;margin-top:1px">${sig.s}</div>`:''}
+            <div style="height:1px;background:#D3D1C7;margin-top:${fs(22,30)}px"></div>
+          </div>`).join('')}
+      </div>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;
+        background:#f3f0e8;border-top:1px solid #D3D1C7;
+        padding:${fs(6,9)}px ${fs(18,24)}px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:${fs(8.5,10.5)}px;font-weight:600;color:#2d3a5a">${e(agency.name)}</div>
+          ${(agency.address||agency.city)?`<div style="font-size:${fs(7.5,9)}px;color:#888780">${[agency.address,agency.city].filter(Boolean).map(e).join(', ')}</div>`:''}
+        </div>
+        <div style="text-align:right;font-size:${fs(7.5,9)}px;color:#888780;line-height:1.5">
+          ${[agency.phone,agency.email].filter(Boolean).map(e).join('<br>')}
+        </div>
+      </div>
+    </div>`
+    }
+
+    const body = p
+      ? renderBon(false) + `<div style="margin:10px 0;border-top:2px dashed #D3D1C7"></div>` + renderBon(true)
+      : renderBon(false)
+
+    return `<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8"/>
+<title>Bon de Versement ${e(quote.quote_number)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+@page{size:A4;margin:8mm 10mm}
+@media print{html,body{background:#fff!important;width:100%!important}}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2C2C2A;background:${p?'#fff':'#f0ede8'};${p?'width:100%':'width:1080px;margin:0 auto'}}
+</style></head>
+<body><div style="${p?'':'padding:24px;max-width:1080px;margin:0 auto'}">${body}</div>
+</body></html>`
+  }
+
+  function getHTML(mode: GenMode): string {
+    if (docType === 'bon') return buildBonHTML(mode)
+    return buildBaseHTML(mode, docType as 'devis'|'proforma'|'facture')
+  }
+
+  async function generatePDF() {
+    setGenerating(true); setDone(null)
+    const win = window.open('','_blank','width=960,height=800')
+    if (!win) { alert('Autorisez les popups pour ce site.'); setGenerating(false); return }
+    win.document.write(getHTML('print'))
+    win.document.close()
+    await new Promise(r => setTimeout(r, 1200))
+    win.print()
+    setDone('pdf'); setGenerating(false)
+  }
+
   async function generateImage() {
-    setGenerating(true)
+    setGenerating(true); setDone(null)
     try {
       const html2canvas = (await import('html2canvas')).default
-      const container   = document.createElement('div')
-      /* 794px = A4 à 96dpi, scale 2 → 1588px, net et léger en JPEG */
-      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-1'
-      container.innerHTML     = buildHTML()
+      const container = document.createElement('div')
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;z-index:-1'
+      container.innerHTML = getHTML('image')
       document.body.appendChild(container)
-      await new Promise(r => setTimeout(r, 1000))
-      const pageEl = container.querySelector('.page') as HTMLElement
-      const canvas = await html2canvas(pageEl || container, {
-        scale: 2,           // 1588px — net sur mobile/écran
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        imageTimeout: 8000,
+      await new Promise(r => setTimeout(r, 1200))
+      const target = container.firstElementChild as HTMLElement
+      const canvas = await html2canvas(target || container, {
+        scale: 1.5, useCORS: true, allowTaint: true,
+        backgroundColor: docType==='bon'?'#f0ede8':'#e8eef5',
+        logging: false, imageTimeout: 10000,
       })
       document.body.removeChild(container)
       const link    = document.createElement('a')
-      link.download = `Devis_${quote.quote_number.replace('/', '_')}_client.jpg`
-      link.href     = canvas.toDataURL('image/jpeg', 0.82) // JPEG léger
+      const slug    = DOC_TABS.find(t=>t.id===docType)?.label.replace(/\s+/g,'_') || docType
+      link.download = `${slug}_${quote.quote_number.replace('/','_')}.jpg`
+      link.href     = canvas.toDataURL('image/jpeg', 0.88)
       link.click()
       setDone('img')
-    } catch (e) {
-      console.error(e); alert('Erreur génération image.')
-    }
+    } catch(err) { console.error(err); alert('Erreur lors de la génération.') }
     setGenerating(false)
   }
 
-  const logoInfo = logoUrl
-    ? { ok: true,  msg: '✅ Logo configuré et visible dans le document' }
-    : { ok: false, msg: '⚠️ Pas de logo — allez dans ⚙️ Agence → "URL du logo" et collez l\'URL Supabase Storage de votre logo (PNG ou SVG).' }
+  const logoOk = !!logoUrl
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 460, borderRadius: '1.25rem',
-        background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-        overflow: 'hidden', color: '#111827' }}>
+    <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'0.75rem'}}>
+      <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)'}} onClick={onClose}/>
+      <div style={{position:'relative',width:'100%',maxWidth:500,maxHeight:'94vh',overflowY:'auto',
+        borderRadius:'1.25rem',background:'#fff',border:'1px solid #e5e7eb',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.2)',color:'#111827',
+        fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'}}>
 
         {/* Header */}
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#ffffff' }}>
+        <div style={{position:'sticky',top:0,zIndex:2,padding:'1rem 1.25rem',borderBottom:'1px solid #e5e7eb',
+          background:'#fff',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <div>
-            <h2 style={{ fontWeight: 700, fontSize: '1rem', color: '#111827' }}>📤 Partager le devis client</h2>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
-              Devis {quote.quote_number} · {clientLabel}
-            </p>
+            <h2 style={{fontWeight:700,fontSize:'0.9375rem',color:'#111827'}}>📤 Partager / Convertir</h2>
+            <p style={{fontSize:'0.75rem',color:'#6b7280',marginTop:2}}>{quote.quote_number} · {clientLabel}</p>
           </div>
-          <button onClick={onClose} style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem',
-            border: '1px solid #e5e7eb', background: '#f3f4f6', cursor: 'pointer', fontSize: '1rem', color: '#374151' }}>✕</button>
+          <button onClick={onClose} style={{padding:'0.25rem 0.5rem',borderRadius:'0.375rem',
+            border:'1px solid #e5e7eb',background:'#f3f4f6',cursor:'pointer',fontSize:'1rem',color:'#374151'}}>✕</button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem', background: '#ffffff' }}>
+        <div style={{padding:'1.25rem',display:'flex',flexDirection:'column',gap:'1rem'}}>
 
-          {/* Logo status */}
-          <div style={{ background: logoInfo.ok ? '#f0fdf4' : '#fffbeb',
-            border: `1px solid ${logoInfo.ok ? '#bbf7d0' : '#fde68a'}`,
-            borderRadius: '0.625rem', padding: '0.75rem 1rem',
-            fontSize: '0.8125rem', color: logoInfo.ok ? '#166534' : '#92400e', lineHeight: 1.5 }}>
-            {logoInfo.msg}
-            {!logoInfo.ok && (
-              <div style={{ marginTop: '0.375rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                📌 Chemin : <strong>⚙️ Agence</strong> → <strong>URL du logo</strong>
-              </div>
-            )}
+          {/* Doc type */}
+          <div>
+            <div style={{fontSize:'0.7rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6b7280',marginBottom:'0.5rem'}}>
+              Type de document
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.5rem'}}>
+              {DOC_TABS.map(tab => (
+                <button key={tab.id} onClick={()=>{setDocType(tab.id);setDone(null)}}
+                  style={{padding:'0.6rem 0.75rem',borderRadius:'0.625rem',cursor:'pointer',
+                    textAlign:'left',fontSize:'0.8125rem',fontWeight:docType===tab.id?700:500,
+                    border:`2px solid ${docType===tab.id?'#0f2c5c':'#e5e7eb'}`,
+                    background:docType===tab.id?'#eff6ff':'#f9fafb',
+                    color:docType===tab.id?'#0f2c5c':'#374151',transition:'all 0.15s'}}>
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Contenu */}
-          <div style={{ background: '#f9fafb', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280',
-              textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>
-              Contenu du document client
+          {/* Bon fields */}
+          {docType === 'bon' && (
+            <div style={{background:'#fdf8f5',border:'1px solid #fde8d8',borderRadius:'0.75rem',padding:'0.875rem 1rem'}}>
+              <div style={{fontSize:'0.7rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#92400e',marginBottom:'0.625rem'}}>
+                💳 Paramètres du bon
+              </div>
+              <div style={{marginBottom:'0.625rem'}}>
+                <div style={{fontSize:'0.75rem',fontWeight:500,color:'#6b7280',marginBottom:'0.375rem'}}>Mode de paiement</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0.375rem'}}>
+                  {PAY_METHODS.map(m=>(
+                    <button key={m} onClick={()=>setPayMethod(m)}
+                      style={{padding:'0.375rem 0.625rem',borderRadius:'0.5rem',cursor:'pointer',
+                        fontSize:'0.8125rem',fontWeight:payMethod===m?700:400,
+                        border:`1.5px solid ${payMethod===m?'#D85A30':'#e5e7eb'}`,
+                        background:payMethod===m?'#FAECE7':'#fff',
+                        color:payMethod===m?'#993C1D':'#374151'}}>
+                      {PAY_ICONS[m]} {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:'0.75rem',fontWeight:500,color:'#6b7280',marginBottom:'0.25rem'}}>Remarques (optionnel)</div>
+                <textarea value={bonNotes} onChange={ev=>setBonNotes(ev.target.value)}
+                  placeholder="Observations, conditions…" rows={2}
+                  style={{width:'100%',padding:'0.5rem 0.625rem',borderRadius:'0.5rem',
+                    border:'1px solid #e5e7eb',background:'#fff',fontSize:'0.8125rem',
+                    resize:'none',outline:'none',fontFamily:'inherit',color:'#111827'}}/>
+              </div>
+            </div>
+          )}
+
+          {/* Logo */}
+          <div style={{background:logoOk?'#f0fdf4':'#fffbeb',border:`1px solid ${logoOk?'#bbf7d0':'#fde68a'}`,
+            borderRadius:'0.625rem',padding:'0.625rem 0.875rem',fontSize:'0.8125rem',
+            color:logoOk?'#166534':'#92400e',lineHeight:1.5}}>
+            {logoOk ? '✅ Logo configuré — visible dans tous les documents' :
+              <span>⚠️ Pas de logo · <strong>⚙️ Agence → "URL du logo"</strong> → collez l'URL Supabase Storage</span>}
+          </div>
+
+          {/* Summary */}
+          <div style={{background:'#f9fafb',borderRadius:'0.75rem',padding:'0.875rem 1rem',border:'1px solid #e5e7eb'}}>
+            <p style={{fontSize:'0.7rem',fontWeight:600,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:'0.5rem'}}>
+              Contenu
             </p>
             {[
-              '✅ Entête agence + logo',
-              `✅ Devis ${quote.quote_number} — ${issueDateFmt}`,
-              `✅ Validité : ${validity} j (jusqu'au ${validityDateFmt})`,
-              '✅ Informations client',
-              `✅ ${items.length} prestation(s) — Total ${fmtNum(total)} DA`,
-              quote.remarks ? '✅ Remarques' : null,
-              '🚫 Coût brut, marge, bénéfice (masqués)',
-            ].filter(Boolean).map((line, i) => (
-              <p key={i} style={{ fontSize: '0.8125rem', color: (line as string).startsWith('🚫') ? '#9ca3af' : '#111827',
-                paddingBlock: '0.1875rem' }}>{line}</p>
+              `✅ En-tête ${agency.name}${logoOk?' + logo':''}`,
+              docType==='bon' ? `✅ Bon de Versement N° ${quote.quote_number}` : `✅ ${DOC_TABS.find(t=>t.id===docType)?.label} N° ${quote.quote_number} — ${issueDateStr}`,
+              docType==='devis' ? `✅ Validité ${validity} jours → ${expDateStr}` : null,
+              `✅ Client : ${clientLabel}`,
+              `✅ ${items.length} prestation(s) — ${n(totalHT)} DA`,
+              docType==='facture' ? `✅ TVA 19% → Total TTC ${n(totalTTC)} DA` : null,
+              docType==='bon' ? `✅ Paiement : ${payMethod}` : null,
+              docType==='bon' ? `✅ 2 copies PDF : Client + Archive agence` : null,
+              '🚫 Coût brut / marge / bénéfice masqués',
+            ].filter(Boolean).map((line,i)=>(
+              <p key={i} style={{fontSize:'0.8125rem',paddingBlock:'0.1rem',
+                color:(line as string).startsWith('🚫')?'#9ca3af':'#111827'}}>{line}</p>
             ))}
           </div>
 
-          {/* Buttons */}
           <button onClick={generatePDF} disabled={generating}
-            style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem',
-              background: '#0f2c5c', color: 'white', border: 'none',
-              cursor: generating ? 'wait' : 'pointer', fontWeight: 700,
-              fontSize: '0.9375rem', opacity: generating ? 0.6 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {generating ? '⏳ Génération...' : '📄 PDF (impression → Enregistrer PDF)'}
+            style={{width:'100%',padding:'0.875rem',borderRadius:'0.75rem',background:'#0f2c5c',
+              color:'#fff',border:'none',cursor:generating?'wait':'pointer',fontWeight:700,
+              fontSize:'0.9375rem',opacity:generating?0.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            {generating ? '⏳ Génération...' : '📄 PDF (A4 — impression → Enregistrer en PDF)'}
           </button>
 
           <button onClick={generateImage} disabled={generating}
-            style={{ width: '100%', padding: '0.875rem', borderRadius: '0.75rem',
-              background: '#0f766e', color: 'white', border: 'none',
-              cursor: generating ? 'wait' : 'pointer', fontWeight: 700,
-              fontSize: '0.9375rem', opacity: generating ? 0.6 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {generating ? '⏳ Génération...' : '🖼️ Image JPEG (légère, nette, partageable)'}
+            style={{width:'100%',padding:'0.875rem',borderRadius:'0.75rem',background:'#0f766e',
+              color:'#fff',border:'none',cursor:generating?'wait':'pointer',fontWeight:700,
+              fontSize:'0.9375rem',opacity:generating?0.6:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            {generating ? '⏳ Génération...' : '🖼️ Image 1080 px (WhatsApp / Email)'}
           </button>
 
           {done && (
-            <div style={{ background: '#d1fae5', borderRadius: '0.625rem', padding: '0.75rem 1rem',
-              fontSize: '0.875rem', color: '#065f46', fontWeight: 500, textAlign: 'center' }}>
-              {done === 'pdf' ? '✅ Fenêtre impression ouverte — choisir "Enregistrer en PDF"' : '✅ Image téléchargée !'}
+            <div style={{background:'#d1fae5',borderRadius:'0.625rem',padding:'0.75rem 1rem',
+              fontSize:'0.875rem',color:'#065f46',fontWeight:500,textAlign:'center'}}>
+              {done==='pdf'
+                ? "✅ Fenêtre d'impression ouverte — activer \"Graphiques d'arrière-plan\" puis Enregistrer PDF"
+                : '✅ Image 1080 px téléchargée !'}
             </div>
           )}
         </div>
