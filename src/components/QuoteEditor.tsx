@@ -3,7 +3,7 @@ import ManualProfitSection from './ManualProfitSection'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter,	 KeyboardSensor, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
 import {
   SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove,
