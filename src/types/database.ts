@@ -87,4 +87,7 @@ export interface Quote {
   updated_at: string
   manual_profit?: number | null
   manual_profit_enabled?: boolean
+  document_type?: 'devis' | 'proforma' | 'facture' | 'bon_versement'
+  payment_method?: string | null
+}
 }
