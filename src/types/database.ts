@@ -70,6 +70,8 @@ export interface QuoteItem {
   created_at: string
 }
 
+export type DocumentType = 'devis' | 'proforma' | 'facture' | 'bon_versement'
+
 export interface Quote {
   id: string
   quote_number: string
