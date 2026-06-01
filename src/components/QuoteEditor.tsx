@@ -16,6 +16,7 @@ import QuoteItemRow from './QuoteItemRow'
 import ServiceModal from './ServiceModal'
 import AgencyPopup from './AgencyPopup'
 import ClientShareModal from './ClientShareModal'
+import DocTypeBadge from './DocTypeBadge'
 
 const STATUS = [
   { value: 'draft',    label: '📝 Brouillon' },
@@ -46,6 +47,9 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
   const [saving, setSaving]             = useState(false)
   const [saved, setSaved]               = useState(false)
   const [shareOpen, setShareOpen]       = useState(false)
+  const [documentType, setDocumentType] = useState(
+  quote?.document_type || 'devis'
+  )
   const [newError, setNewError]         = useState('')
 
   const sensors = useSensors(
@@ -124,7 +128,9 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
     setSaving(true)
     if (quote?.id) {
       await supabase.from('quotes').update({
-        remarks, status, validity_days: validityDays, updated_at: new Date().toISOString()
+        remarks, status, validity_days: validityDays,
+        document_type: documentType,          // ← ajouter
+        updated_at: new Date().toISOString()
       }).eq('id', quote.id)
       if (quote.client_id)
         await supabase.from('clients').update({ name: clientName, phone: clientPhone }).eq('id', quote.client_id)
@@ -196,6 +202,15 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           {agency && <AgencyPopup agency={agency} onUpdate={setAgency} />}
+          <select value={documentType}
+            onChange={e => setDocumentType(e.target.value as typeof documentType)}
+            style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem',
+              fontSize: '0.875rem', outline: 'none', cursor: 'pointer', ...S }}>
+            <option value="devis">📄 Devis</option>
+            <option value="proforma">📋 Facture Proforma</option>
+            <option value="facture">🧾 Facture</option>
+            <option value="bon_versement">💳 Bon de Versement</option>
+          </select>
           <select value={status} onChange={e => setStatus(e.target.value as typeof status)}
             style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', fontSize: '0.875rem',
               outline: 'none', cursor: 'pointer', ...S }}>
@@ -367,7 +382,8 @@ export default function QuoteEditor({ mode, quote, onCreate }: Props) {
           quote={{
             ...quote,
             items,
-            validity_days: validityDays,   // ← valeur courante du champ
+            validity_days: validityDays,
+            document_type: documentType,
             client: { id: quote.client_id || '', name: clientName, phone: clientPhone, created_at: '' }
           }}
           agency={agency}
