@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Quote } from '@/types/database'
 import { getQuotes } from '@/lib/quotes'
 import { supabase } from '@/lib/supabase'
+import DocTypeBadge from '@/components/DocTypeBadge'
 
 const SL: Record<string,{label:string;bg:string;color:string}> = {
   draft:    { label:'Brouillon', bg:'#f3f4f6', color:'#4b5563' },
@@ -115,7 +116,7 @@ export default function DashboardPage() {
           <table>
             <thead>
               <tr style={{ background:'var(--color-surface-offset)', borderBottom:'1px solid var(--color-border)' }}>
-                {['N° Devis','Client','Date','Statut','Total client','Bénéfice','Actions'].map(h=>(
+                {['N° Devis','Type','Client','Date','Statut','Total client','Bénéfice','Actions'].map(h=>(
                   <th key={h} style={{ padding:'0.75rem 1rem', textAlign:'left', fontSize:'0.6875rem',
                     fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em',
                     color:'var(--color-text-muted)' }}>{h}</th>
@@ -131,6 +132,9 @@ export default function DashboardPage() {
                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
                     <td style={{ padding:'0.875rem 1rem', fontSize:'0.875rem', fontWeight:700,
                       color:'var(--color-primary)' }}>{q.quote_number}</td>
+                    <td style={{ padding: '0.875rem 1rem' }}>
+                      <DocTypeBadge type={q.document_type} size="sm" />
+                    </td>
                     <td style={{ padding:'0.875rem 1rem', fontSize:'0.875rem' }}>
                       {q.client?.name||<span style={{color:'var(--color-text-faint)'}}>—</span>}
                     </td>
