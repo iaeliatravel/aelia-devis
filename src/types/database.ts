@@ -92,4 +92,3 @@ export interface Quote {
   document_type?: 'devis' | 'proforma' | 'facture' | 'bon_versement'
   payment_method?: string | null
 }
-}
