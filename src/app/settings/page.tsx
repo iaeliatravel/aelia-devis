@@ -27,10 +27,24 @@ export default function SettingsPage() {
   const [error,   setError]   = useState('')
 
   useEffect(() => {
-    supabase.from('agency_config').select('*').single()
-      .then(({ data }) => { if (data) setForm(data) })
-      .then(() => setLoading(false))
-      .catch(() => setLoading(false))
+    const loadSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from('agency_config')
+          .select('*')
+          .single()
+  
+        if (data) {
+          setForm(data)
+        }
+      } catch (error) {
+        console.error(error)
+      } finally {
+        setLoading(false)
+      }
+    }
+  
+    loadSettings()
   }, [])
 
   const set = (k: keyof AgencyConfig) =>
