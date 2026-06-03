@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { Quote, AgencyConfig, DocumentType } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { generateQuoteNumber, DOC_PREFIX, effectiveProfit } from '@/lib/quotes'
