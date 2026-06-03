@@ -29,7 +29,8 @@ export default function SettingsPage() {
   useEffect(() => {
     supabase.from('agency_config').select('*').single()
       .then(({ data }) => { if (data) setForm(data) })
-      .finally(() => setLoading(false))
+      .then(() => setLoading(false))
+      .catch(() => setLoading(false))
   }, [])
 
   const set = (k: keyof AgencyConfig) =>
