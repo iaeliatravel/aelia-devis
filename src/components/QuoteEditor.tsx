@@ -318,8 +318,10 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
 
       {shareOpen&&quote&&agency&&(
         <ClientShareModal
-          quote={{...quote,items,validity_days:validityDays,document_type:documentType,quote_number:quoteNumber,
-            client:{id:quote.client_id||'',name:clientName,phone:clientPhone,created_at:''}}}
+          quote={{ ...quote, items, validity_days: validityDays,
+            document_type: documentType, quote_number: quoteNumber,
+            remarks: remarks,                    // ← AJOUTER CETTE LIGNE
+            client: { id: quote.client_id || '', name: clientName, phone: clientPhone, created_at: '' } }}
           agency={agency}
           onClose={()=>setShareOpen(false)}
           onDocTypeChange={(t,num)=>{setDocumentType(t);setQuoteNumber(num)}}
