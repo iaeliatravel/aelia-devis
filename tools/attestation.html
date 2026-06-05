@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Attestation de Cession — Calculateur</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #F7F5F0;
+  --bg2:          #EFECE6;
+  --surface:      #FFFFFF;
+  --border:       #E3DEDA;
+  --border-mid:   #CCC8C2;
+  --accent:       #C96A2E;
+  --accent-dim:   #E8956A;
+  --accent-bg:    #FDF3ED;
+  --accent-border:#F0C5A8;
+  --green:        #2A7D54;
+  --green-bg:     #EBF7F1;
+  --green-border: #AADCC4;
+  --red:          #C0392B;
+  --red-bg:       #FDEEEC;
+  --red-border:   #F0AEAD;
+  --blue:         #2563A8;
+  --blue-bg:      #EDF3FC;
+  --blue-border:  #AFC7E8;
+  --text:         #1C1A17;
+  --text-mid:     #5C574F;
+  --text-muted:   #9B9589;
+  --text-dim:     #C4BEB6;
+  --shadow-sm:    0 1px 3px #0000000A, 0 1px 2px #0000000A;
+  --shadow:       0 4px 16px #0000000D, 0 2px 6px #0000000A;
+  --shadow-lg:    0 12px 40px #00000012, 0 4px 12px #0000000A;
+  --radius:       12px;
+  --radius-sm:    8px;
+}
+
+html, body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+body {
+  padding: 48px 20px 80px;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -10%, #C96A2E0B 0%, transparent 60%);
+}
+
+/* ── Header ── */
+.header { max-width: 640px; margin: 0 auto 36px; }
+.header-top {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+}
+.logo {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, var(--accent), #E8956A);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px #C96A2E30;
+  flex-shrink: 0;
+}
+.logo svg { width: 22px; height: 22px; color: white; }
+.logo-text-main {
+  font-family: 'Lora', serif; font-size: 18px; font-weight: 500; line-height: 1.2;
+}
+.logo-text-sub { font-size: 12px; color: var(--text-muted); }
+
+/* ── Rate Banner ── */
+.rate-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.rate-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+  transition: background 0.3s;
+}
+.rate-icon.loading { background: var(--bg2); }
+.rate-icon.ok      { background: var(--green-bg); }
+.rate-icon.err     { background: var(--red-bg); }
+
+.rate-info { flex: 1; min-width: 0; }
+.rate-label {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted); line-height: 1; margin-bottom: 3px;
+}
+.rate-val {
+  font-family: 'Lora', serif; font-size: 17px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rate-val.loading { font-family: 'Outfit'; font-size: 13px; color: var(--text-dim); font-style: italic; }
+.rate-val.ok  { color: var(--text); }
+.rate-val.err { font-family: 'Outfit'; font-size: 13px; color: var(--red); }
+
+.rate-meta {
+  text-align: right; flex-shrink: 0;
+}
+.rate-source { font-size: 11px; color: var(--text-muted); }
+.rate-ts     { font-size: 10px; color: var(--text-dim); }
+
+.btn-refresh {
+  flex-shrink: 0;
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 12px; font-size: 11px; font-family: 'Outfit';
+  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.btn-refresh:hover { border-color: var(--accent-dim); color: var(--accent); }
+.spin { animation: spin .8s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.pulsing { animation: pulse 1.4s ease-in-out infinite; }
+
+/* ── Steps ── */
+.steps { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+
+.step-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.step-card.active {
+  border-color: var(--accent-dim);
+  box-shadow: var(--shadow), 0 0 0 3px var(--accent-bg);
+}
+.step-card.done  { border-color: var(--green-border); }
+.step-card.locked { opacity: 0.45; pointer-events: none; }
+
+.step-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; }
+
+.step-pill {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border);
+  color: var(--text-muted); flex-shrink: 0; transition: all 0.25s;
+}
+.step-card.active .step-pill { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent); }
+.step-card.done  .step-pill  { background: var(--green-bg);  border-color: var(--green-border);  color: var(--green);  }
+
+.step-title { flex: 1; font-family: 'Lora', serif; font-size: 16px; font-weight: 500; }
+.step-card.locked .step-title { color: var(--text-muted); }
+
+.step-badge { font-size: 13px; font-weight: 500; color: var(--green); }
+
+.step-body { padding: 0 20px 20px; display: none; animation: slideIn 0.2s ease; }
+.step-card.active .step-body { display: block; }
+@keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+
+/* ── Fields ── */
+.field { margin-bottom: 16px; }
+.field-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 500; color: var(--text-mid);
+  letter-spacing: 0.02em; margin-bottom: 7px;
+}
+.field-hint  { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+.field-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 20px;
+  background: var(--accent-bg); border: 1px solid var(--accent-border);
+  color: var(--accent); font-weight: 500;
+}
+
+.input-row {
+  display: flex; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface);
+  overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-row:focus-within { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-bg); }
+.input-row.error { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-bg); animation: shake .4s ease; }
+@keyframes shake { 0%,100%{transform:none} 20%,60%{transform:translateX(5px)} 40%,80%{transform:translateX(-5px)} }
+
+.input-row input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-family: 'Lora', serif; font-size: 22px; font-weight: 400;
+  color: var(--text); padding: 12px 16px; min-width: 0;
+  -moz-appearance: textfield;
+}
+.input-row input::-webkit-outer-spin-button,
+.input-row input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.input-row input::placeholder { color: var(--text-dim); }
+
+.input-unit {
+  display: flex; align-items: center; padding: 0 16px;
+  background: var(--bg2); border-left: 1.5px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.input-row.prefilled input      { background: var(--accent-bg); color: var(--accent); }
+.input-row.prefilled .input-unit{ background: var(--accent-bg); border-left-color: var(--accent-border); color: var(--accent); }
+
+/* ── Results ── */
+.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.results { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+.rrow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  background: var(--bg2); border: 1px solid var(--border);
+}
+.rrow.accent { background: var(--accent-bg); border-color: var(--accent-border); }
+.rrow.green  { background: var(--green-bg);  border-color: var(--green-border); }
+.rrow.red    { background: var(--red-bg);    border-color: var(--red-border); }
+.rrow.blue   { background: var(--blue-bg);   border-color: var(--blue-border); }
+
+.rrow-lbl {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.rrow.accent .rrow-lbl { color: var(--accent); }
+.rrow.green  .rrow-lbl { color: var(--green); }
+.rrow.red    .rrow-lbl { color: var(--red); }
+.rrow.blue   .rrow-lbl { color: var(--blue); }
+
+.rrow-val { font-family: 'Lora', serif; font-size: 17px; font-weight: 500; color: var(--text); }
+.rrow.accent .rrow-val { color: var(--accent); }
+.rrow.green  .rrow-val { color: var(--green); }
+.rrow.red    .rrow-val { color: var(--red); }
+.rrow.blue   .rrow-val { color: var(--blue); }
+
+.formula-note {
+  font-size: 11px; color: var(--text-muted); padding-left: 2px;
+}
+.formula-note code {
+  background: var(--bg2); padding: 2px 6px; border-radius: 4px;
+  color: var(--text-mid); font-size: 11.5px;
+}
+
+/* ── Buttons ── */
+/* ── Live total ── */
+.live-total {
+  margin-top: 10px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, var(--accent-bg), #FEF9F5);
+  border: 2px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  animation: popIn .2s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn { from { transform: scale(.97); opacity:.6; } to { transform: none; opacity:1; } }
+.live-total-lbl {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+}
+.live-total-val {
+  font-family: 'Lora', serif; font-size: 38px; font-weight: 600;
+  color: var(--accent); line-height: 1;
+  transition: all .15s ease;
+}
+.live-total-val.changed { transform: scale(1.03); }
+.live-total-sub {
+  font-size: 11px; color: var(--text-muted); margin-top: 6px;
+}
+.live-total-sub code {
+  background: #0000000A; padding: 2px 6px; border-radius: 4px;
+  color: var(--text-mid); font-size: 11px;
+}
+
+.btn-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: white; border: none;
+  border-radius: var(--radius-sm); padding: 11px 22px;
+  font-family: 'Outfit'; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s;
+  box-shadow: 0 2px 8px #C96A2E30;
+}
+.btn-primary:hover { background: #B85A20; box-shadow: 0 4px 16px #C96A2E40; transform: translateY(-1px); }
+.btn-primary:active { transform: none; }
+
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 18px; font-family: 'Outfit'; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.18s;
+}
+.btn-secondary:hover { border-color: var(--border-mid); color: var(--text-mid); background: var(--bg2); }
+
+/* ── Summary ── */
+.summary { max-width: 640px; margin: 16px auto 0; display: none; animation: slideIn 0.3s ease; }
+.summary.visible { display: block; }
+
+.summary-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-lg);
+}
+.summary-head {
+  background: linear-gradient(135deg, var(--accent) 0%, #E07840 100%);
+  padding: 22px 26px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.summary-eyebrow {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #FFD4BC; margin-bottom: 4px;
+}
+.summary-head-title {
+  font-family: 'Lora', serif; font-size: 22px; font-weight: 500; color: white;
+}
+.summary-head-date { font-size: 11px; color: #FFD4BC; line-height: 1.7; text-align: right; }
+
+.summary-rows { padding: 4px 26px 0; }
+.s-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.s-row:last-child { border-bottom: none; }
+.s-lbl { font-size: 12px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.04em; }
+.s-val { font-family: 'Lora', serif; font-size: 15px; color: var(--text); }
+.s-val.green  { color: var(--green); }
+.s-val.red    { color: var(--red); }
+.s-val.blue   { color: var(--blue); }
+.s-val.accent { color: var(--accent); }
+
+.summary-total {
+  margin: 0 26px; border-top: 2px solid var(--border);
+  padding: 20px 0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.summary-total-lbl {
+  font-family: 'Lora', serif; font-size: 16px; font-style: italic;
+  font-weight: 500; color: var(--text-mid);
+}
+.summary-total-val {
+  font-family: 'Lora', serif; font-size: 36px; font-weight: 600;
+  color: var(--accent); line-height: 1;
+}
+.summary-total-val sup { font-size: 15px; font-weight: 400; color: var(--text-muted); margin-left: 5px; vertical-align: super; }
+
+.summary-footer {
+  padding: 14px 26px; border-top: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+.btn-new {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); color: var(--text-mid);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 18px; font-family: 'Outfit'; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.18s;
+}
+.btn-new:hover { border-color: var(--border-mid); background: var(--bg); }
+.btn-print {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: white; border: none;
+  border-radius: var(--radius-sm); padding: 9px 18px;
+  font-family: 'Outfit'; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s; box-shadow: 0 2px 6px #C96A2E30;
+}
+.btn-print:hover { background: #B85A20; }
+
+@media print {
+  body { background: white; padding: 0; }
+  .steps, .header { display: none; }
+  .summary { display: block !important; }
+  .summary-footer { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text-main">Attestation de Cession</div>
+      <div class="logo-text-sub">Calculateur — Agence de change</div>
+    </div>
+  </div>
+
+  <!-- Rate Banner -->
+  <div class="rate-banner">
+    <div class="rate-icon loading pulsing" id="rateIcon">🔄</div>
+    <div class="rate-info">
+      <div class="rate-label">Taux officiel EUR → DZD</div>
+      <div class="rate-val loading" id="rateVal">Chargement en cours…</div>
+    </div>
+    <div class="rate-meta" id="rateMeta" style="display:none">
+      <div class="rate-source" id="rateSource"></div>
+      <div class="rate-ts"    id="rateTs"></div>
+    </div>
+    <button class="btn-refresh" id="btnRefresh" onclick="fetchRate()">
+      <span id="refreshSpin">↻</span> Actualiser
+    </button>
+  </div>
+</div>
+
+<!-- Steps -->
+<div class="steps">
+
+  <!-- Step 1 -->
+  <div class="step-card active" id="step1">
+    <div class="step-header">
+      <div class="step-pill">Étape 1</div>
+      <div class="step-title">Montant du billet en Dinar</div>
+      <div class="step-badge" id="badge1"></div>
+    </div>
+    <div class="step-body">
+      <div class="field">
+        <div class="field-label">Montant en Dinar Algérien</div>
+        <div class="input-row" id="wr_da">
+          <input type="number" id="montantDA" placeholder="0,00" min="0" step="any" oninput="pvS1()"/>
+          <div class="input-unit">DA</div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-label">
+          Taux de change officiel
+          <span class="field-hint">— récupéré automatiquement</span>
+        </div>
+        <div class="input-row" id="wr_tof">
+          <input type="number" id="tauxOfficiel" placeholder="—" min="0" step="any" oninput="pvS1()"/>
+          <div class="input-unit">DA / €</div>
+        </div>
+      </div>
+      <div id="res1" style="display:none">
+        <hr class="sep"/>
+        <div class="results">
+          <div class="rrow accent">
+            <span class="rrow-lbl">Montant au taux officiel</span>
+            <span class="rrow-val" id="eoDisplay">—</span>
+          </div>
+        </div>
+        <div class="formula-note" id="f1"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="valS1()">
+          Continuer
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-card locked" id="step2">
+    <div class="step-header">
+      <div class="step-pill">Étape 2</div>
+      <div class="step-title">Taux du marché parallèle</div>
+      <div class="step-badge" id="badge2"></div>
+    </div>
+    <div class="step-body">
+      <div class="field">
+        <div class="field-label">
+          Taux marché noir
+          <span class="field-badge">Défaut : 285 DA/€</span>
+        </div>
+        <div class="input-row" id="wr_tm">
+          <input type="number" id="tauxMarche" value="285" min="0" step="any" oninput="pvS2()"/>
+          <div class="input-unit">DA / €</div>
+        </div>
+      </div>
+      <div id="res2" style="display:none">
+        <hr class="sep"/>
+        <div class="results">
+          <div class="rrow blue">
+            <span class="rrow-lbl">Reconverti au taux marché (DA)</span>
+            <span class="rrow-val" id="emDisplay">—</span>
+          </div>
+          <div class="rrow" id="diffRow">
+            <span class="rrow-lbl">Différence (marché − initial)</span>
+            <span class="rrow-val" id="diffDisplay">—</span>
+          </div>
+          <div class="rrow green">
+            <span class="rrow-lbl">Montant initial + Différence</span>
+            <span class="rrow-val" id="ajDisplay">—</span>
+          </div>
+        </div>
+        <div class="formula-note" id="f2"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="valS2()">
+          Continuer
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="btn-secondary" onclick="goBack(1)">← Retour</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step-card locked" id="step3">
+    <div class="step-header">
+      <div class="step-pill">Étape 3</div>
+      <div class="step-title">Commission de l'agence</div>
+      <div class="step-badge" id="badge3"></div>
+    </div>
+    <div class="step-body">
+      <div class="field">
+        <div class="field-label">Montant de la commission</div>
+        <div class="input-row" id="wr_com">
+          <input type="number" id="commission" placeholder="0,00" min="0" step="any" oninput="pvS3()"/>
+          <div class="input-unit">DA</div>
+        </div>
+      </div>
+      <div id="res3" style="display:none">
+        <hr class="sep"/>
+        <div class="results">
+          <div class="rrow green">
+            <span class="rrow-lbl">Montant ajusté</span>
+            <span class="rrow-val" id="s3aj">—</span>
+          </div>
+          <div class="rrow accent">
+            <span class="rrow-lbl">+ Commission agence</span>
+            <span class="rrow-val" id="s3com">—</span>
+          </div>
+        </div>
+        <!-- Live total -->
+        <div class="live-total" id="liveTotal">
+          <div class="live-total-lbl">Montant total de vente</div>
+          <div class="live-total-val" id="s3fin">—</div>
+          <div class="live-total-sub" id="s3formula">—</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-primary" onclick="valS3()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          Générer le récapitulatif
+        </button>
+        <button class="btn-secondary" onclick="goBack(2)">← Retour</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="summary" id="summary">
+  <div class="summary-card">
+    <div class="summary-head">
+      <div>
+        <div class="summary-eyebrow">Document généré</div>
+        <div class="summary-head-title">Attestation de Cession</div>
+      </div>
+      <div class="summary-head-date" id="s_date">—</div>
+    </div>
+    <div class="summary-rows">
+      <div class="s-row"><span class="s-lbl">Montant du billet</span>           <span class="s-val"        id="s_da">—</span></div>
+      <div class="s-row"><span class="s-lbl">Taux officiel</span>               <span class="s-val"        id="s_tof">—</span></div>
+      <div class="s-row"><span class="s-lbl">Montant € (taux officiel)</span>   <span class="s-val accent" id="s_eof">—</span></div>
+      <div class="s-row"><span class="s-lbl">Taux marché parallèle</span>       <span class="s-val"        id="s_tm">—</span></div>
+      <div class="s-row"><span class="s-lbl">Reconverti au taux marché</span>      <span class="s-val blue"   id="s_em">—</span></div>
+      <div class="s-row"><span class="s-lbl">Différence (marché − initial)</span>    <span class="s-val"        id="s_diff">—</span></div>
+      <div class="s-row"><span class="s-lbl">Montant ajusté (DA + diff.)</span> <span class="s-val green"  id="s_aj">—</span></div>
+      <div class="s-row"><span class="s-lbl">Commission agence</span>           <span class="s-val accent"    id="s_com">—</span></div>
+    </div>
+    <div class="summary-total">
+      <span class="summary-total-lbl">Montant net à céder</span>
+      <span class="summary-total-val" id="s_total">—<sup>DA</sup></span>
+    </div>
+    <div class="summary-footer">
+      <button class="btn-new" onclick="resetAll()">↺ Nouveau calcul</button>
+      <button class="btn-print" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimer
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { da:0, tof:0, tm:285, eo:0, em:0, diff:0, aj:0, com:0, fin:0 };
+
+const f2  = n => Number(n).toLocaleString('fr-DZ', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const f4  = n => Number(n).toLocaleString('fr-DZ', { minimumFractionDigits:2, maximumFractionDigits:4 });
+const fDA = n => f2(n) + ' DA';
+const fEU = n => f4(n) + ' €';
+const now = () => {
+  const d = new Date();
+  return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})
+    + '<br>' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+};
+
+/* ── Fetch official rate ── */
+async function fetchRate() {
+  const icon = document.getElementById('rateIcon');
+  const val  = document.getElementById('rateVal');
+  const meta = document.getElementById('rateMeta');
+  const spin = document.getElementById('refreshSpin');
+  const inp  = document.getElementById('tauxOfficiel');
+  const wr   = document.getElementById('wr_tof');
+
+  icon.className = 'rate-icon loading pulsing'; icon.textContent = '🔄';
+  val.className  = 'rate-val loading'; val.textContent = 'Chargement…';
+  meta.style.display = 'none';
+  spin.classList.add('spin');
+
+  const try1 = async () => {
+    const r = await fetch('https://open.er-api.com/v6/latest/EUR');
+    const d = await r.json();
+    if (d.result !== 'success' || !d.rates?.DZD) throw new Error();
+    return { rate: d.rates.DZD, src: 'open.er-api.com' };
+  };
+  const try2 = async () => {
+    const r = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+    const d = await r.json();
+    if (!d.rates?.DZD) throw new Error();
+    return { rate: d.rates.DZD, src: 'exchangerate-api.com' };
+  };
+
+  spin.classList.remove('spin');
+  try {
+    let res;
+    try { res = await try1(); } catch { res = await try2(); }
+
+    const rate = parseFloat(res.rate.toFixed(4));
+    S.tof = rate; inp.value = rate;
+
+    icon.className = 'rate-icon ok'; icon.textContent = '✓';
+    val.className  = 'rate-val ok'; val.textContent  = `1 € = ${f2(rate)} DA`;
+
+    document.getElementById('rateSource').textContent = res.src;
+    document.getElementById('rateTs').textContent     = 'Actualisé à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    meta.style.display = 'block';
+    wr.classList.add('prefilled');
+    pvS1();
+  } catch {
+    icon.className = 'rate-icon err'; icon.textContent = '⚠';
+    val.className  = 'rate-val err'; val.textContent  = 'Indisponible — entrez le taux manuellement';
+    wr.classList.remove('prefilled'); inp.placeholder = 'Ex: 145.00';
+  }
+}
+
+/* ── Step logic ── */
+function setActive(n) {
+  [1,2,3].forEach(i => {
+    const c = document.getElementById('step'+i);
+    c.classList.remove('active','locked','done');
+    if (i<n) c.classList.add('done');
+    else if (i===n) c.classList.add('active');
+    else c.classList.add('locked');
+  });
+}
+function errField(id) {
+  const el = document.getElementById(id);
+  el.classList.add('error');
+  setTimeout(() => el.classList.remove('error'), 1500);
+  el.querySelector('input').focus();
+}
+
+/* S1 */
+function pvS1() {
+  const da = parseFloat(document.getElementById('montantDA').value)||0;
+  const t  = parseFloat(document.getElementById('tauxOfficiel').value)||0;
+  const r  = document.getElementById('res1');
+  if (da>0 && t>0) {
+    const eo = da/t;
+    document.getElementById('eoDisplay').textContent = fEU(eo);
+    document.getElementById('f1').innerHTML = `Calcul : <code>${f2(da)} ÷ ${f2(t)} = ${f4(eo)} €</code>`;
+    r.style.display='block';
+  } else r.style.display='none';
+}
+function valS1() {
+  const da = parseFloat(document.getElementById('montantDA').value);
+  const t  = parseFloat(document.getElementById('tauxOfficiel').value);
+  if (!da||da<=0) { errField('wr_da');  return; }
+  if (!t||t<=0)   { errField('wr_tof'); return; }
+  S.da=da; S.tof=t; S.eo=da/t;
+  document.getElementById('badge1').textContent = fDA(da);
+  setActive(2); pvS2();
+}
+
+/* S2 */
+function pvS2() {
+  const t = parseFloat(document.getElementById('tauxMarche').value)||0;
+  const r = document.getElementById('res2');
+  if (t>0 && S.da>0 && S.eo>0) {
+    const em  = S.eo * t;                // 114.9303 × 285 = 32755.1355 DA
+    const df  = em - S.da;               // 32755.1355 − 17885 = 14870.1355 DA
+    const aj  = S.da + df;               // 17885 + 14870.1355 = 32755.1355 DA
+    document.getElementById('emDisplay').textContent = fDA(em);
+    const dEl = document.getElementById('diffDisplay');
+    const dRw = document.getElementById('diffRow');
+    dEl.textContent = (df>=0?'+':'')+f2(df)+' DA';
+    dRw.className = 'rrow '+(df>=0?'green':'red');
+    document.getElementById('ajDisplay').textContent = fDA(aj);
+    document.getElementById('f2').innerHTML =
+      `<code>${f4(S.eo)} € × ${f2(t)} = ${f2(em)} DA</code>`+
+      `&nbsp;&nbsp;→&nbsp;&nbsp;<code>${f2(em)} − ${f2(S.da)} = +${f2(df)} DA</code>`;
+    r.style.display='block';
+  } else r.style.display='none';
+}
+function valS2() {
+  const t = parseFloat(document.getElementById('tauxMarche').value);
+  if (!t||t<=0) { errField('wr_tm'); return; }
+  S.tm=t;
+  S.em   = S.eo * t;       // montant reconverti en DA au taux marché
+  S.diff = S.em - S.da;    // différence en DA
+  S.aj   = S.da + S.diff;  // = S.em
+  document.getElementById('badge2').textContent = f2(t)+' DA/€';
+  setActive(3); pvS3();
+}
+
+/* S3 */
+function pvS3() {
+  const c   = parseFloat(document.getElementById('commission').value)||0;
+  const fin = Math.round((S.aj + c) / 500) * 500;
+  document.getElementById('s3aj').textContent  = fDA(S.aj);
+  document.getElementById('s3com').textContent = '+ ' + fDA(c);
+  document.getElementById('s3fin').textContent = fDA(fin);
+  document.getElementById('s3formula').innerHTML =
+    `<code>${f2(S.aj)} + ${f2(c)} = ${f2(fin)} DA</code>`;
+  document.getElementById('res3').style.display='block';
+  // pulse animation
+  const v = document.getElementById('s3fin');
+  v.classList.remove('changed');
+  void v.offsetWidth;
+  v.classList.add('changed');
+  setTimeout(() => v.classList.remove('changed'), 200);
+}
+function valS3() {
+  const c = parseFloat(document.getElementById('commission').value)||0;
+  S.com=c; S.fin=Math.round((S.aj+c) / 500) * 500;
+  document.getElementById('badge3').textContent = fDA(c);
+  setActive(99);
+  buildSummary();
+}
+
+/* Nav */
+function goBack(n) {
+  document.getElementById('badge'+(n+1)).textContent='';
+  document.getElementById('res'+(n+1)).style.display='none';
+  setActive(n);
+}
+
+/* Summary */
+function buildSummary() {
+  document.getElementById('s_date').innerHTML = now();
+  document.getElementById('s_da').textContent = fDA(S.da);
+  document.getElementById('s_tof').textContent= f2(S.tof)+' DA / 1 €';
+  document.getElementById('s_eof').textContent= fEU(S.eo);
+  document.getElementById('s_tm').textContent = f2(S.tm)+' DA / 1 €';
+  document.getElementById('s_em').textContent = fDA(S.em);
+  const dEl = document.getElementById('s_diff');
+  dEl.textContent = (S.diff>=0?'+':'')+f2(S.diff)+' DA';
+  dEl.className = 's-val '+(S.diff>=0?'green':'red');
+  document.getElementById('s_aj').textContent  = fDA(S.aj);
+  document.getElementById('s_com').textContent = '+ '+fDA(S.com);
+  document.getElementById('s_total').innerHTML = f2(S.fin)+'<sup>DA</sup>';
+  const sm = document.getElementById('summary');
+  sm.classList.add('visible');
+  setTimeout(()=>sm.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+
+function resetAll() { location.reload(); }
+
+/* Enter key */
+document.addEventListener('keydown', e => {
+  if (e.key!=='Enter') return;
+  if (document.getElementById('step1').classList.contains('active')) valS1();
+  else if (document.getElementById('step2').classList.contains('active')) valS2();
+  else if (document.getElementById('step3').classList.contains('active')) valS3();
+});
+
+fetchRate();
+</script>
+</body>
+</html>
