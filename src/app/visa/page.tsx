@@ -159,7 +159,7 @@ export default function VisaPage() {
               <div style={{ flex:1,minWidth:0 }}>
                 <div style={{ fontWeight:700,fontSize:'1rem' }}>{c.country}</div>
                 <div style={{ display:'flex',gap:6,marginTop:4,flexWrap:'wrap' }}>
-                  {[...new Set(c.options.map(o=>o.typeColor))].map(col=>{
+                  {Array.from(new Set(c.options.map(o => o.typeColor))).map(col => {
                     const b=BADGE_COLORS[col]||BADGE_COLORS.green
                     return <span key={col} style={{ padding:'1px 8px',borderRadius:20,fontSize:'0.6875rem',
                       fontWeight:600,background:b.bg,color:b.color }}>{b.label}</span>
