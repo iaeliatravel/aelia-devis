@@ -394,35 +394,164 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
     setDone('pdf'); setGenerating(false)
   }
 
+  function buildMobileHTML(): string {
+    const esc2 = (s?: string|null) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  
+    const hasTVA2 = docType==='facture'||docType==='proforma'
+    const dispTotal = hasTVA2 ? totalTTC : totalHT
+    const word2 = {devis:'Devis',proforma:'Facture Proforma',facture:'Facture',bon:'Bon de Versement'}[docType]
+  
+    const itemCards = items.map((it,i) => `
+      <div style="background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:10px;
+        border-left:4px solid #1e6fa5;box-shadow:0 2px 10px rgba(0,0,0,0.08)">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;
+          color:#1e6fa5;margin-bottom:6px">Prestation ${i+1}</div>
+        <div style="font-size:13px;color:#1a2b3c;line-height:1.5;margin-bottom:10px">${esc2(it.description)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:#6b7f93;background:#f5f8fc;border-radius:20px;padding:3px 10px">
+            Qté : ${it.quantity}
+          </div>
+          <div style="font-size:20px;font-weight:800;color:#0d2340;font-variant-numeric:tabular-nums">
+            ${n(it.total_price)} <span style="font-size:12px;font-weight:500;color:#6b7f93">DA</span>
+          </div>
+        </div>
+      </div>`).join('')
+  
+    return `<!DOCTYPE html><html lang="fr"><head>
+  <meta charset="UTF-8"/>
+  <style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:#0d2340;width:750px;color:#1a2b3c}
+  </style></head><body>
+  <div style="width:750px;background:#0d2340;overflow:hidden">
+  
+    <!-- En-tête agence -->
+    <div style="background:linear-gradient(145deg,#0d2340 0%,#1a3a6e 100%);
+      padding:36px 40px 28px;text-align:center;position:relative">
+      <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;
+        border-radius:50%;background:rgba(255,255,255,0.03)"></div>
+      ${logoUrl?`<img src="${logoUrl}" crossorigin="anonymous"
+        style="width:70px;height:70px;object-fit:contain;border-radius:14px;
+        border:2px solid rgba(255,255,255,0.15);margin-bottom:14px;background:rgba(255,255,255,0.08)"/>`:''}
+      <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:0.5px">${esc2(agency.name)}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:6px;line-height:1.7">
+        ${[agency.address,agency.city,agency.phone].filter(Boolean).map(esc2).join(' · ')}
+      </div>
+    </div>
+  
+    <!-- Type de document -->
+    <div style="background:#1e6fa5;padding:14px 40px;text-align:center">
+      <div style="font-size:28px;font-weight:300;color:#fff;font-style:italic;letter-spacing:-0.3px">${word2}</div>
+      ${docType==='devis'?`<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px;font-style:italic">
+        Valable ${validity} jours — sous réserve de disponibilité</div>`:''}
+      ${docType==='proforma'?`<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:4px">Document provisoire — non fiscal</div>`:''}
+    </div>
+  
+    <!-- Barre N° + Date -->
+    <div style="background:#0f2c5c;padding:16px 32px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.4);margin-bottom:4px">N° Document</div>
+        <div style="font-size:20px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums">${esc2(curNumber)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.4);margin-bottom:4px">Émis le</div>
+        <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.8)">${issueDateStr}</div>
+      </div>
+    </div>
+  
+    <!-- Client -->
+    <div style="background:#fff;padding:18px 32px;border-bottom:3px solid #f5f8fc">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#9ca3af;margin-bottom:6px">
+        ${docType==='facture'?'Facturé à':'Client'}
+      </div>
+      <div style="font-size:20px;font-weight:700;color:#0d2340">${esc2(clientLabel.split(' · ')[0])}</div>
+      ${clientLabel.includes(' · ')?`<div style="font-size:14px;color:#6b7f93;margin-top:3px">${esc2(clientLabel.split(' · ')[1])}</div>`:''}
+    </div>
+  
+    <!-- Prestations -->
+    <div style="background:#f5f8fc;padding:16px 24px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#6b7f93;margin-bottom:12px;font-weight:600">
+        ${items.length} Prestation${items.length>1?'s':''}
+      </div>
+      ${itemCards}
+    </div>
+  
+    <!-- TVA (si facture/proforma) -->
+    ${hasTVA2?`
+    <div style="background:#fff;padding:14px 32px;border-top:1px solid #f0f0f0">
+      ${[['Sous-total HT',n(totalHT)+' DA'],['TVA 19%',n(tva)+' DA']].map(([l,v])=>`
+        <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5f5f5">
+          <span style="font-size:13px;color:#6b7f93">${l}</span>
+          <span style="font-size:13px;font-weight:500;color:#1a2b3c;font-variant-numeric:tabular-nums">${v}</span>
+        </div>`).join('')}
+    </div>`:''}
+  
+    <!-- Total -->
+    <div style="background:#0d2340;padding:28px 32px;text-align:center;position:relative">
+      ${addCachet&&stampUrl?`<div style="position:absolute;left:24px;top:50%;transform:translateY(-50%)">
+        <img src="${stampUrl}" crossorigin="anonymous" style="width:64px;height:64px;object-fit:contain;opacity:0.85"/></div>`:''}
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:rgba(255,255,255,0.4);margin-bottom:10px">
+        ${docType==='facture'?'TOTAL TTC':'TOTAL'}
+      </div>
+      <div style="font-size:48px;font-weight:900;color:#fff;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums">
+        ${n(dispTotal)}
+      </div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.4);margin-top:8px">Dinars Algériens (DA)</div>
+    </div>
+  
+    <!-- Validité + remarques -->
+    <div style="background:#0f2c5c;padding:16px 32px">
+      ${docType==='devis'?`
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:${quote.remarks?'12px':'0'}">
+        <span style="font-size:13px;color:rgba(255,255,255,0.5)">⏳ Valable jusqu'au</span>
+        <span style="font-size:14px;font-weight:700;color:#E8956A">${expDateStr}</span>
+      </div>`:''}
+      ${quote.remarks?`
+      <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:12px 14px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-bottom:6px">Remarques</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.55">${esc2(quote.remarks)}</div>
+      </div>`:''}
+    </div>
+  
+    <!-- Footer -->
+    <div style="background:#08172a;padding:16px 32px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:11px;color:rgba(255,255,255,0.3)">${esc2(agency.name)}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.3);text-align:right">
+        ${[agency.phone,agency.email].filter(Boolean).map(esc2).join(' · ')}
+      </div>
+    </div>
+  </div>
+  </body></html>`
+  }
+  
   async function generateImage() {
     await saveDocType()
     setGenerating(true); setDone(null)
     try {
       const html2canvas = (await import('html2canvas')).default
       const iframe = document.createElement('iframe')
-      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:3000px;border:none;visibility:hidden;'
+      // 750px = format portrait mobile
+      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:750px;height:4000px;border:none;visibility:hidden;'
       document.body.appendChild(iframe)
       const iDoc = iframe.contentDocument!
-      iDoc.open(); iDoc.write(getHTML('image')); iDoc.close()
+      iDoc.open()
+      iDoc.write(buildMobileHTML())
+      iDoc.close()
       await new Promise(r => setTimeout(r, 1800))
-      const target = (
-        iDoc.querySelector('div[style*="border-radius:6px"]') ||
-        iDoc.querySelector('div[style*="padding:24px"]') ||
-        iDoc.body.firstElementChild ||
-        iDoc.body
-      ) as HTMLElement
+      const target = iDoc.body.firstElementChild as HTMLElement || iDoc.body
       const canvas = await html2canvas(target, {
-        scale: 1.5, useCORS: true, allowTaint: true,
-        backgroundColor: docType === 'bon' ? '#f0ede8' : '#e8eef5',
-        logging: false, windowWidth: 1080, imageTimeout: 12000,
+        scale: 2,           // 1500px output — net sur tous les écrans
+        useCORS: true, allowTaint: true, backgroundColor: '#0d2340',
+        logging: false, windowWidth: 750, imageTimeout: 12000,
       })
       document.body.removeChild(iframe)
       const link = document.createElement('a')
-      link.download = `${currentTab.label.replace(/\s+/g, '_')}_${curNumber.replace('/', '_')}.jpg`
+      link.download = `${currentTab.label.replace(/\s+/g,'_')}_${curNumber.replace('/','_')}.jpg`
       link.href = canvas.toDataURL('image/jpeg', 0.88)
       link.click()
       setDone('img')
-    } catch (err) { console.error(err); alert("Erreur lors de la génération de l'image.") }
+    } catch(err) { console.error(err); alert("Erreur lors de la génération.") }
     setGenerating(false)
   }
 
