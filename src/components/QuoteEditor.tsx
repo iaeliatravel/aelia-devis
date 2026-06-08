@@ -121,8 +121,21 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
         document_type:documentType,
         updated_at:new Date().toISOString()
       }).eq('id',quote.id)
-      if(quote.client_id)
-        await supabase.from('clients').update({name:clientName,phone:clientPhone}).eq('id',quote.client_id)
+      if (quote.client_id) {
+        const name = clientName.trim() || 'N/A'
+        await supabase.from('clients')
+          .update({ name, phone: clientPhone.trim() || null })
+          .eq('id', quote.client_id)
+      } else if (clientName.trim() || clientPhone.trim()) {
+        // Créer un client si le devis n'en a pas encore
+        const { data: newClient } = await supabase
+          .from('clients')
+          .insert({ name: clientName.trim() || 'N/A', phone: clientPhone.trim() || null })
+          .select().single()
+        if (newClient) {
+          await supabase.from('quotes').update({ client_id: newClient.id }).eq('id', quote.id)
+        }
+      }
     }
     setSaving(false);setSaved(true);setTimeout(()=>setSaved(false),2500)
   }
@@ -175,10 +188,6 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
           </div>
         </div>
         <div className="qe-header-actions" style={{display:'flex',alignItems:'center',gap:'0.5rem',flexWrap:'wrap'}}>
-          {/* Paramètres → page dédiée */}
-          <Link href="/settings" style={{padding:'0.375rem 0.875rem',borderRadius:'0.5rem',fontSize:'0.875rem',textDecoration:'none',border:'1px solid var(--color-border)',background:'var(--color-surface)',color:'var(--color-text-muted)'}}>
-            ⚙️ Paramètres
-          </Link>
           <select value={documentType} onChange={e=>setDocumentType(e.target.value as DocumentType)}
             style={{padding:'0.375rem 0.75rem',borderRadius:'0.5rem',fontSize:'0.875rem',outline:'none',cursor:'pointer',...S}}>
             <option value="devis">📄 Devis</option>
