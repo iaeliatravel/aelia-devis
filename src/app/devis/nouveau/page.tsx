@@ -8,19 +8,22 @@ export default function NouveauDevisPage() {
   const router = useRouter()
 
   async function handleCreate(_: string | null, clientName: string, clientPhone: string) {
-    // Nouveau document = Devis par défaut → préfixe D
+    /* Nom par défaut : N/A si rien n'est saisi */
+    const name  = clientName.trim()  || 'N/A'
+    const phone = clientPhone.trim() || null
+
     const quoteNumber = await generateQuoteNumber('devis')
 
-    let clientId: string | null = null
-    if (clientName.trim()) {
-      const { data } = await supabase
-        .from('clients')
-        .insert({ name: clientName.trim(), phone: clientPhone.trim() || null })
-        .select()
-        .single()
-      clientId = data?.id ?? null
-    }
+    /* Créer le client */
+    const { data: client } = await supabase
+      .from('clients')
+      .insert({ name, phone })
+      .select()
+      .single()
 
+    const clientId = client?.id ?? null
+
+    /* Créer le devis */
     const { data, error } = await supabase.from('quotes').insert({
       quote_number:  quoteNumber,
       document_type: 'devis',
