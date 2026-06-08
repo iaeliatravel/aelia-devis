@@ -107,7 +107,7 @@ export default function AutocompleteInput({ value, onChange, category, placehold
       } catch { /* ignore */ }
 
       /* Fusionner sans doublons */
-      const merged = [...new Set([...remote, ...local])].slice(0, 8)
+      const merged = Array.from(new Set([...remote, ...local])).slice(0, 8)
       setSuggestions(merged)
       if (merged.length > 0) setIsOpen(true)
       setLoading(false)
