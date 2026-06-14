@@ -61,7 +61,7 @@ export default function VisaPage(){
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:700,fontSize:'1rem'}}>{c.country}</div>
                 <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
-                  {[...new Set(c.options.map(o=>o.typeColor))].map(col=>{const b=BADGE[col]||BADGE.green;return<span key={col} style={{padding:'1px 8px',borderRadius:20,fontSize:'0.6875rem',fontWeight:600,background:b.bg,color:b.color}}>{b.label}</span>})}
+                  Array.from(new Set(c.options.map(o => o.typeColor))).map(col=>{const b=BADGE[col]||BADGE.green;return<span key={col} style={{padding:'1px 8px',borderRadius:20,fontSize:'0.6875rem',fontWeight:600,background:b.bg,color:b.color}}>{b.label}</span>})}
                   <span style={{fontSize:'0.75rem',color:'#C96A2E',fontWeight:600}}>{c.options.length>1?'dès ':''}{c.options[0].price}</span>
                 </div>
               </div>
