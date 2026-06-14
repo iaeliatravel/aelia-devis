@@ -16,6 +16,7 @@ import ServiceModal       from './ServiceModal'
 import ClientShareModal   from './ClientShareModal'
 import ManualProfitSection from './ManualProfitSection'
 import DocTypeBadge        from './DocTypeBadge'
+import VoucherModal from './VoucherModal'
 
 const STATUS = [
   {value:'draft',    label:'📝 Brouillon'},
@@ -49,6 +50,7 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
   const [saved,        setSaved]       = useState(false)
   const [shareOpen,    setShareOpen]   = useState(false)
   const [newError,     setNewError]    = useState('')
+  const [voucherOpen, setVoucherOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -199,6 +201,15 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
             style={{padding:'0.375rem 0.75rem',borderRadius:'0.5rem',fontSize:'0.875rem',outline:'none',cursor:'pointer',...S}}>
             {STATUS.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
+          <button onClick={() => setVoucherOpen(true)}
+            style={{
+              padding: '0.375rem 0.875rem', borderRadius: '0.5rem',
+              fontSize: '0.875rem', cursor: 'pointer',
+              background: '#78350f', color: 'white',
+              border: 'none', fontWeight: 600,
+            }}>
+            🏨 Voucher
+          </button>
           <button onClick={()=>setShareOpen(true)}
             style={{padding:'0.375rem 0.875rem',borderRadius:'0.5rem',fontSize:'0.875rem',cursor:'pointer',background:'#0f766e',color:'white',border:'none',fontWeight:600}}>
             📤 Partager
@@ -334,6 +345,22 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
           agency={agency}
           onClose={()=>setShareOpen(false)}
           onDocTypeChange={(t,num)=>{setDocumentType(t);setQuoteNumber(num)}}
+        />
+      )}
+      {voucherOpen && quote && agency && (
+        <VoucherModal
+          quote={{
+            ...quote,
+            items,
+            client: {
+              id: quote.client_id || '',
+              name: clientName,
+              phone: clientPhone,
+              created_at: '',
+            },
+          }}
+          agency={agency}
+          onClose={() => setVoucherOpen(false)}
         />
       )}
     </div>
