@@ -126,7 +126,7 @@ td,th{vertical-align:top}
       <div class="label" style="margin-top:6px">Stay</div>
       <div class="value">${esc(stayStr)}</div>
       <div style="margin-top:8px">
-        <span class="confirmed">PROVISOIRE</span>
+        <span class="confirmed" style="color:#ea580c">PENDING</span>
       </div>
     </td>
   </tr>
@@ -156,7 +156,7 @@ td,th{vertical-align:top}
       <div class="card">
         <div class="card-header">${esc(hotelName)}</div>
         <div class="card-body">
-          ${agAddr ? `<div style="font-size:12px;color:#666;margin-bottom:6px">Address: ${esc(agAddr)}</div>` : ''}
+          ${(hotelItem?.hotel_city || hotelItem?.hotel_country) ? `<div style="font-size:12px;color:#666;margin-bottom:6px">${esc([hotelItem?.hotel_city, hotelItem?.hotel_country].filter(Boolean).join(' - '))}</div>` : ''}
         </div>
       </div>
     </td>
@@ -326,7 +326,7 @@ td,th{vertical-align:top}
             </div>
             <div>✅ En-tête : {agName}{logoUrl ? ' + logo' : ''}</div>
             <div>✅ Référence : {refNum}</div>
-            <div>✅ Statut : <strong style={{ color:'#16a34a' }}>PROVISOIRE</strong></div>
+            <div>✅ Statut : <strong style={{ color:'#ea580c' }}>PENDING</strong></div>
             <div>✅ Hôtel : {hotelName} · {roomType}</div>
             <div>✅ Séjour : {stayStr}</div>
             <div>✅ Client : {clientName || '—'}{clientPhone ? ` · ${clientPhone}` : ''}</div>
