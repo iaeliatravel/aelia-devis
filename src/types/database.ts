@@ -13,7 +13,7 @@ export interface QuoteItem {
   adults?:number;children?:number;room_type?:string;
   board_type?:'room_only'|'breakfast'|'half_board'|'half_board_plus'|'full_board'|'all_inclusive';
   checkin_date?:string;checkout_date?:string;nights?:number;transfer_type?:string;
-  vehicle_type?:string;passengers?:number;luggage_count?:number;
+  vehicle_type?:string;passengers?:number;luggage_count?:number;arrival_datetime?:string;departure_datetime?:string;
   airline?:string;origin?:string;destination?:string;departure_date?:string;return_date?:string;via?:string;
   dep_time?:string;arr_time?:string;ret_dep_time?:string;ret_arr_time?:string;
   includes_baggage?:boolean;other_description?:string;created_at:string
