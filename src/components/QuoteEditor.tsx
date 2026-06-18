@@ -352,12 +352,7 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
           quote={{
             ...quote,
             items,
-            client: {
-              id: quote.client_id || '',
-              name: clientName,
-              phone: clientPhone,
-              created_at: '',
-            },
+            client: { id: quote.client_id||'', name: clientName, phone: clientPhone, created_at:'' },
           }}
           agency={agency}
           onClose={() => setVoucherOpen(false)}
