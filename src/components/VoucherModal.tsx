@@ -17,7 +17,7 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
   const saved = quote.voucher_data || null
 
   const [hotelName, setHotelName] = useState(
-    saved?.hotelName ?? hotelItem?.hotel_name ?? ''
+    saved?.hotelName ?? (hotelItem?.hotel_name ?? '')
   )
   const [hotelAddr, setHotelAddr] = useState(
     saved?.hotelAddress ?? [hotelItem?.hotel_city, hotelItem?.hotel_country].filter(Boolean).join(', ')
@@ -73,12 +73,11 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
     ? `${fmtShort(checkin)} to ${fmtShort(checkout)} (${nights} night${nights!==1?'s':''})`
     : '—'
 
-  /* ── Politique d'annulation (basée sur la date d'arrivée, format identique au modèle) ── */
   const dayBefore = checkin ? new Date(checkin.getTime() - 86400000) : null
   const cancelLines = checkin ? [
-    `From ${fmtISO(dayBefore!)} 14:05:00 : 1 night(s)`,
-    `From ${fmtISO(checkin)} 00:06:00 : 1 night(s)`,
-    `From ${fmtISO(checkin)} 00:06:00 : 100% of the invoice amount`,
+    [`From ${fmtISO(dayBefore!)} 14:05:00 :`, '1 night(s)'],
+    [`From ${fmtISO(checkin)} 00:06:00 :`, '1 night(s)'],
+    [`From ${fmtISO(checkin)} 00:06:00 :`, '100% of the invoice amount'],
   ] : []
 
   const roomType   = hotelItem?.room_type  || '—'
@@ -102,119 +101,122 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
   function buildHTML(): string {
     const guestRows = guests.map((g,i)=>`
       <tr>
-        ${i===0?`<td rowspan="${guests.length}" style="padding:14px 16px;vertical-align:top;width:38%;border-right:1px solid #e2e8f0">
-          <div style="font-weight:700;font-size:14px;color:#1a2b3c">${esc(roomType)}</div>
-          <div style="font-size:13px;color:#64748b;margin-top:2px">${esc(boardLabel)}</div>
+        ${i===0?`<td rowspan="${guests.length}" style="padding:14px 18px;vertical-align:top;width:34%">
+          <div style="font-weight:700;font-size:14px;color:#111827">${esc(roomType)}</div>
+          <div style="font-size:13px;color:#374151;margin-top:1px">${esc(boardLabel)}</div>
         </td>`:''}
-        <td style="padding:9px 16px;font-size:13px;color:#1e293b">${esc(g.name)||'&nbsp;'}</td>
-        <td style="padding:9px 16px;font-size:13px;color:#64748b;text-align:right">${g.type}</td>
+        <td style="padding:${i===0?'14px':'4px'} 14px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#1f2937">${esc(g.name)||'&nbsp;'}</td>
+        <td style="padding:${i===0?'14px':'4px'} 18px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#374151;text-align:right">${g.type}</td>
       </tr>`).join('')
 
-    const cancelItems = cancelLines.map(l=>{
-      const parts = l.split(' : ')
-      return `<li style="margin-bottom:3px">${esc(parts[0])} : <span style="color:#ef4444;font-weight:600">${esc(parts[1])}</span></li>`
-    }).join('')
+    const cancelItems = cancelLines.map(([l,v])=>
+      `<li style="margin-bottom:4px">${esc(l)} <span style="color:#ef4444">${esc(v)}</span></li>`
+    ).join('')
 
     return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"/><title>Voucher ${esc(voucherNum)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-@page{size:A4;margin:16mm 18mm}
+@page{size:A4;margin:18mm 20mm}
 @media print{html,body{background:#fff!important;width:100%!important}}
-body{font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;color:#1e293b;font-size:13px;line-height:1.45;width:100%}
-.card{background:#f4f7fa;border-radius:10px}
-.label{font-size:11px;color:#94a3b8;margin-bottom:2px}
-.bold{font-weight:700;color:#0f172a}
+body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;line-height:1.4;width:100%}
+.page{display:flex;flex-direction:column;min-height:250mm}
+.card{background:#eef1f6;border-radius:10px}
+.gray{color:#9aa3af}
+.bold{font-weight:700;color:#111827}
 </style></head><body>
+<div class="page">
 
-<!-- ═══ TOP ROW: Voucher # + Reference block ═══ -->
-<table style="width:100%;margin-bottom:18px">
-  <tr>
-    <td style="vertical-align:top">
-      <div style="font-size:26px;font-weight:800;color:#0f172a">Voucher ${esc(voucherNum)}</div>
-    </td>
-    <td style="text-align:right;vertical-align:top;min-width:220px">
-      <div class="label">Reference</div>
-      <div class="bold" style="font-size:14px;margin-bottom:10px">${esc(refNum)}</div>
-      <div class="label">Issued on</div>
-      <div style="font-size:13px;color:#334155;margin-bottom:10px">${fmtFull(today)}</div>
-      <div class="label">Stay</div>
-      <div style="font-size:13px;color:#334155;margin-bottom:12px">${esc(stayStr)}</div>
-      <div style="font-size:24px;font-weight:800;color:#ea580c;letter-spacing:0.5px">PENDING</div>
-    </td>
-  </tr>
-</table>
-
-<!-- ═══ ISSUED BY ═══ -->
-<div class="label" style="margin-bottom:8px">Issued by:</div>
-<div class="card" style="padding:14px 16px;margin-bottom:20px">
-  <table>
+  <!-- TOP: Voucher title + Reference block -->
+  <table style="width:100%;margin-bottom:18px">
     <tr>
-      <td style="width:54px;vertical-align:middle;padding-right:14px">
-        <div style="width:46px;height:46px;background:#f97316;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;text-align:center;line-height:1.25">TRAVEL<br>AGENCY</div>
+      <td style="vertical-align:top">
+        <div style="font-size:27px;font-weight:800;color:#111827">Voucher ${esc(voucherNum)}</div>
       </td>
-      <td style="vertical-align:middle">
-        <div class="bold" style="font-size:15px">${esc(agName)}</div>
-        ${agAddr  ? `<div style="font-size:12px;color:#64748b;margin-top:2px">Address: ${esc(agAddr)}</div>` : ''}
-        ${agEmail ? `<div style="font-size:12px;color:#64748b">Email: ${esc(agEmail)}</div>` : ''}
+      <td style="text-align:right;vertical-align:top;width:230px">
+        <div class="gray" style="font-size:13px">Reference</div>
+        <div class="bold" style="font-size:13.5px;margin-top:1px;margin-bottom:9px">${esc(refNum)}</div>
+        <div class="gray" style="font-size:13px">Issued on</div>
+        <div style="font-size:13px;color:#1f2937;margin-top:1px;margin-bottom:9px">${fmtFull(today)}</div>
+        <div class="gray" style="font-size:13px">Stay</div>
+        <div style="font-size:13px;color:#1f2937;margin-top:1px;margin-bottom:10px">${esc(stayStr)}</div>
+        <div style="font-size:21px;font-weight:800;color:#ea580c">PENDING</div>
       </td>
     </tr>
   </table>
-</div>
 
-<!-- ═══ HOTEL + HOLDER ═══ -->
-<table style="width:100%;margin-bottom:20px">
-  <tr style="vertical-align:top">
-    <td style="width:50%;padding-right:24px">
-      <div class="bold" style="font-size:15px;margin-bottom:4px">${esc(hotelName)||'—'}</div>
-      ${hotelAddr ? `<div style="font-size:12.5px;color:#64748b">Address: ${esc(hotelAddr)}</div>` : ''}
-    </td>
-    <td style="width:50%;padding-left:24px;border-left:1px solid #e2e8f0">
-      <div class="label" style="margin-bottom:4px">Holder :</div>
-      <div class="bold" style="font-size:14px">${esc(clientName)||'—'}</div>
-      ${clientPhone ? `<div style="font-size:12.5px;color:#64748b;margin-top:2px">Phone: ${esc(clientPhone)}</div>` : ''}
-    </td>
-  </tr>
-</table>
-
-<!-- ═══ CHAMBRE + VOYAGEURS ═══ -->
-<div class="card" style="margin-bottom:20px;overflow:hidden">
-  <table style="width:100%;border-collapse:collapse">${guestRows}</table>
-</div>
-
-<!-- ═══ CANCELLATION POLICY ═══ -->
-<div class="card" style="padding:14px 16px;margin-bottom:30px">
-  <div class="bold" style="font-size:13px;margin-bottom:8px">Cancellation Policy</div>
-  <ul style="padding-left:18px;font-size:12.5px;color:#334155">${cancelItems}</ul>
-  <div style="font-size:11px;color:#94a3b8;font-style:italic;margin-top:8px">
-    The date and time conform to the local time zone
+  <!-- ISSUED BY -->
+  <div class="gray" style="font-size:13px;margin-bottom:8px">Issued by:</div>
+  <div class="card" style="padding:14px 16px;margin-bottom:22px">
+    <table>
+      <tr>
+        <td style="width:60px;vertical-align:middle;padding-right:14px">
+          <div style="width:48px;height:48px;background:#f7941d;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:800;color:#fff;text-align:center;line-height:1.3;letter-spacing:0.3px">TRAVEL<br/>AGENCY</div>
+        </td>
+        <td style="vertical-align:middle">
+          <div class="bold" style="font-size:14.5px">${esc(agName)}</div>
+          ${agAddr  ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Address: ${esc(agAddr)}</div>` : ''}
+          ${agEmail ? `<div style="font-size:12.5px;color:#374151">Email: ${esc(agEmail)}</div>` : ''}
+        </td>
+      </tr>
+    </table>
   </div>
-</div>
 
-<div style="height:60px"></div>
+  <!-- HOTEL + HOLDER -->
+  <table style="width:100%;margin-bottom:22px">
+    <tr style="vertical-align:top">
+      <td style="width:50%">
+        <div class="bold" style="font-size:14.5px;margin-bottom:3px">${esc(hotelName)||'&nbsp;'}</div>
+        ${hotelAddr ? `<div style="font-size:12.5px;color:#374151">Address: ${esc(hotelAddr)}</div>` : ''}
+      </td>
+      <td style="width:50%">
+        <div class="bold" style="font-size:14.5px;margin-bottom:3px">Holder :</div>
+        <div class="bold" style="font-size:13.5px">${esc(clientName)||'&nbsp;'}</div>
+        ${clientPhone ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Phone: ${esc(clientPhone)}</div>` : ''}
+      </td>
+    </tr>
+  </table>
 
-<!-- ═══ FOOTER — Flynbeds.com ═══ -->
-<div style="border-top:1px solid #e2e8f0;padding-top:16px">
-  <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:4px">Flynbeds.com</div>
-  <div style="font-size:11.5px;color:#64748b;line-height:1.6">
-    Address : 09 Boulevard Zighou<br/>
-    D Yousef Constantine Algeria 25000<br/>
-    Email : Info@Flynbeds.dz<br/>
-    Helpdesk : Https://Support.flynbeds.net/<br/>
-    Phone : +213 (0) 671 31 09 27<br/>
-    Phone : +213 (0) 671 32 09 27<br/>
-    Phone : +213 (0) 560 00 15 47
+  <!-- CHAMBRE + VOYAGEURS -->
+  <div class="card" style="margin-bottom:18px;overflow:hidden">
+    <table style="width:100%;border-collapse:collapse">${guestRows}</table>
   </div>
-</div>
 
-<div style="text-align:center;margin-top:36px">
-  <div style="font-size:22px;font-weight:800">
-    <span style="color:#0f172a">flynbeds</span><span style="color:#ec4899">.com</span>
+  <!-- CANCELLATION POLICY -->
+  <div class="card" style="padding:14px 18px;margin-bottom:0">
+    <div class="bold" style="font-size:13.5px;margin-bottom:8px">Cancellation Policy</div>
+    <ul style="padding-left:18px;font-size:12.5px;color:#374151;list-style-type:disc">${cancelItems}</ul>
+    <div style="font-size:11.5px;color:#9aa3af;font-style:italic;text-align:center;margin-top:10px">
+      The date and time conform to the local time zone
+    </div>
   </div>
-  <div style="font-size:10.5px;color:#94a3b8;font-style:italic;margin-top:2px">One click and the world is yours</div>
-</div>
 
+  <!-- SPACER pousse le footer en bas de page -->
+  <div style="flex:1"></div>
+
+  <!-- FOOTER — Flynbeds.com -->
+  <div>
+    <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px">Flynbeds.com</div>
+    <div style="font-size:12px;color:#374151;line-height:1.55">
+      Address : 09 Boulevard Zighou<br/>
+      D Yousef Constantine Algeria 25000<br/>
+      Email : Info@Flynbeds.dz<br/>
+      Helpdesk : Https://Support.flynbeds.net/<br/>
+      Phone : +213 (0) 671 31 09 27<br/>
+      Phone : +213 (0) 671 32 09 27<br/>
+      Phone : +213 (0) 560 00 15 47
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:26px">
+    <div style="font-size:21px;font-weight:800">
+      <span style="color:#1e293b">flynbeds</span><span style="color:#ec4899">.com</span>
+    </div>
+    <div style="font-size:10px;color:#9aa3af;font-style:italic;margin-top:1px">One click and the world is yours</div>
+  </div>
+
+</div>
 </body></html>`
   }
 
