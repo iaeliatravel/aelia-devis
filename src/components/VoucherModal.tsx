@@ -23,7 +23,7 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
     saved?.hotelAddress ?? [hotelItem?.hotel_city, hotelItem?.hotel_country].filter(Boolean).join(', ')
   )
   const [voucherNum, setVoucherNum] = useState(
-    saved?.voucherNumber ?? quote.quote_number.replace(/\D/g, '').padStart(6, '4') || '400000'
+    saved?.voucherNumber ?? (quote.quote_number.replace(/\D/g, '').padStart(6, '4') || '400000')
   )
   const [guests, setGuests] = useState<Guest[]>(() => {
     if (saved?.guests && saved.guests.length > 0) return saved.guests
