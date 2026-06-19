@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Quote, AgencyConfig } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 
-interface Guest { name: string; type: 'Adult' | 'Child' }
+interface Guest { name: string; type: 'Adult' | 'Child'; age?: number }
 interface Props { quote: Quote; agency: AgencyConfig; onClose: () => void }
 
 const BOARD_LABELS: Record<string, string> = {
@@ -23,7 +23,7 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
     saved?.hotelAddress ?? [hotelItem?.hotel_city, hotelItem?.hotel_country].filter(Boolean).join(', ')
   )
   const [voucherNum, setVoucherNum] = useState(
-    saved?.voucherNumber ?? (quote.quote_number.replace(/\D/g, '').padStart(6, '4') || '400000')
+    saved?.voucherNumber ?? (quote.quote_number.replace(/\D/g, '') || '100000')
   )
   const [guests, setGuests] = useState<Guest[]>(() => {
     if (saved?.guests && saved.guests.length > 0) return saved.guests
@@ -31,7 +31,7 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
     const children = hotelItem?.children || 0
     const list: Guest[] = []
     for (let i = 0; i < adults;   i++) list.push({ name: '', type: 'Adult' })
-    for (let i = 0; i < children; i++) list.push({ name: '', type: 'Child' })
+    for (let i = 0; i < children; i++) list.push({ name: '', type: 'Child', age: undefined })
     return list
   })
   const [generating, setGenerating] = useState(false)
@@ -83,8 +83,9 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
   const roomType   = hotelItem?.room_type  || '—'
   const boardLabel = BOARD_LABELS[hotelItem?.board_type||''] || hotelItem?.board_type || '—'
   const refNum     = `HTBD${voucherNum}`
-  const clientName = quote.client?.name  || ''
-  const clientPhone= quote.client?.phone || ''
+  const clientName = quote.client?.name    || ''
+  const clientPhone= quote.client?.phone   || ''
+  const clientAddr = quote.client?.address || ''
   const agName     = agency.name || 'Aelia Travel Agency'
   const agAddr     = [agency.address, agency.city].filter(Boolean).join(' ')
   const agEmail    = agency.email || ''
@@ -93,10 +94,19 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
     String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 
   function updateGuest(i:number, field:keyof Guest, val:string){
-    setGuests(g=>g.map((x,j)=>j===i?{...x,[field]:val}:x))
+    setGuests(g=>g.map((x,j)=>{
+      if(j!==i) return x
+      if(field==='age') return { ...x, age: val ? parseInt(val) : undefined }
+      return { ...x, [field]: val }
+    }))
   }
   function addGuest(type:'Adult'|'Child'){setGuests(g=>[...g,{name:'',type}])}
   function removeGuest(i:number){setGuests(g=>g.filter((_,j)=>j!==i))}
+
+  function guestTypeLabel(g: Guest): string {
+    if (g.type === 'Child' && g.age) return `Child ${g.age} years`
+    return g.type
+  }
 
   function buildHTML(): string {
     const guestRows = guests.map((g,i)=>`
@@ -106,7 +116,7 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
           <div style="font-size:13px;color:#374151;margin-top:1px">${esc(boardLabel)}</div>
         </td>`:''}
         <td style="padding:${i===0?'14px':'4px'} 14px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#1f2937">${esc(g.name)||'&nbsp;'}</td>
-        <td style="padding:${i===0?'14px':'4px'} 18px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#374151;text-align:right">${g.type}</td>
+        <td style="padding:${i===0?'14px':'4px'} 18px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#374151;text-align:right;white-space:nowrap">${esc(guestTypeLabel(g))}</td>
       </tr>`).join('')
 
     const cancelItems = cancelLines.map(([l,v])=>
@@ -173,7 +183,9 @@ body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;line-he
       <td style="width:50%">
         <div class="bold" style="font-size:14.5px;margin-bottom:3px">Holder :</div>
         <div class="bold" style="font-size:13.5px">${esc(clientName)||'&nbsp;'}</div>
+        ${clientAddr  ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Address: ${esc(clientAddr)}</div>` : ''}
         ${clientPhone ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Phone: ${esc(clientPhone)}</div>` : ''}
+        ${agEmail     ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Email: ${esc(agEmail)}</div>` : ''}
       </td>
     </tr>
   </table>
@@ -264,21 +276,27 @@ body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;line-he
         <div style={{padding:'1.25rem',display:'flex',flexDirection:'column',gap:'1rem'}}>
 
           <div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'0.625rem',padding:'0.625rem 0.875rem',fontSize:'0.75rem',color:'#92400e'}}>
-            📌 Modèle identique au voucher Flynbeds — seules les infos hôtel et clients changent. Sauvegarde automatique.
+            📌 Modèle identique au voucher Flynbeds. Le champ Email du titulaire reprend automatiquement celui de l&apos;agence (comportement Flynbeds standard). Sauvegarde automatique.
           </div>
+
+          {!clientAddr && (
+            <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'0.625rem',padding:'0.625rem 0.875rem',fontSize:'0.75rem',color:'#1e40af'}}>
+              ℹ️ Aucune adresse client enregistrée — ajoutez-la dans la fiche client pour qu&apos;elle apparaisse sous &quot;Holder&quot;.
+            </div>
+          )}
 
           <div>
             <label style={lbl}>N° de voucher</label>
-            <input value={voucherNum} onChange={e=>setVoucherNum(e.target.value.replace(/\D/g,''))} style={inp} placeholder="426888"/>
+            <input value={voucherNum} onChange={e=>setVoucherNum(e.target.value.replace(/\D/g,''))} style={inp} placeholder="92043"/>
           </div>
 
           <div>
             <label style={lbl}>🏨 Nom de l'hôtel</label>
-            <input value={hotelName} onChange={e=>setHotelName(e.target.value)} style={inp} placeholder="Ex: Nesrine"/>
+            <input value={hotelName} onChange={e=>setHotelName(e.target.value)} style={inp} placeholder="Ex: El Mouradi Club Selima"/>
           </div>
           <div>
             <label style={lbl}>📍 Adresse de l'hôtel</label>
-            <input value={hotelAddr} onChange={e=>setHotelAddr(e.target.value)} style={inp} placeholder="Ex: Avenue De La Paix, Hammamet, Tunisie"/>
+            <input value={hotelAddr} onChange={e=>setHotelAddr(e.target.value)} style={inp} placeholder="Ex: Zone Touristique Port El Kantaoui, Sousse"/>
           </div>
 
           <div>
@@ -300,6 +318,10 @@ body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;line-he
                     <option value="Adult">Adult</option>
                     <option value="Child">Child</option>
                   </select>
+                  {g.type==='Child'&&(
+                    <input type="number" min={0} max={17} value={g.age??''} onChange={e=>updateGuest(i,'age',e.target.value)}
+                      placeholder="Âge" style={{...inp,width:56,flexShrink:0,textAlign:'center'}}/>
+                  )}
                   {guests.length>1&&<button onClick={()=>removeGuest(i)} style={{background:'none',border:'none',cursor:'pointer',color:'#ef4444',fontSize:'1rem',padding:'0.25rem',flexShrink:0}}>✕</button>}
                 </div>
               ))}

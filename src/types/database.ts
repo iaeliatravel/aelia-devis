@@ -79,6 +79,7 @@ export interface QuoteItem {
 export interface VoucherGuest {
   name: string
   type: 'Adult' | 'Child'
+  age?: number
 }
 export interface VoucherData {
   voucherNumber?: string
