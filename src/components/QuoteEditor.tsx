@@ -74,20 +74,23 @@ export default function QuoteEditor({mode,quote,onCreate}:Props) {
     }).eq('id',quote.id)
   },[quote?.id])
 
-  async function handleAddItem(data:Partial<QuoteItem>){
-    if(!quote?.id) return
-    const computed={...calcItemTotals(data),description:buildDescription(data)}
-    const {data:saved}=await supabase.from('quote_items')
-      .insert({...computed,quote_id:quote.id,sort_order:items.length}).select().single()
-    if(saved){const newItems=[...items,saved as QuoteItem];setItems(newItems);await syncTotals(newItems)}
+  async function handleAddItem(data: Partial<QuoteItem>) {
+    if (!quote?.id) return
+    const computed = { ...calcItemTotals(data), description: data.description || buildDescription(data) }
+    const { data: saved } = await supabase.from('quote_items')
+      .insert({ ...computed, quote_id: quote.id, sort_order: items.length }).select().single()
+    if (saved) {
+      const newItems = [...items, saved as QuoteItem]
+      setItems(newItems); await syncTotals(newItems)
+    }
   }
 
-  async function handleEditItem(data:Partial<QuoteItem>){
-    if(!editItem?.id) return
-    const computed={...calcItemTotals(data),description:buildDescription(data)}
-    await supabase.from('quote_items').update(computed).eq('id',editItem.id)
-    const newItems=items.map(i=>i.id===editItem.id?{...i,...computed} as QuoteItem:i)
-    setItems(newItems);await syncTotals(newItems);setEditItem(null)
+  async function handleEditItem(data: Partial<QuoteItem>) {
+    if (!editItem?.id) return
+    const computed = { ...calcItemTotals(data), description: data.description || buildDescription(data) }
+    await supabase.from('quote_items').update(computed).eq('id', editItem.id)
+    const newItems = items.map(i => i.id === editItem.id ? { ...i, ...computed } as QuoteItem : i)
+    setItems(newItems); await syncTotals(newItems); setEditItem(null)
   }
 
   async function handleDuplicate(item:QuoteItem){
