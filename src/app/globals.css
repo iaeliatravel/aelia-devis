@@ -235,31 +235,3 @@ input[type='number'] {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
 ::-webkit-scrollbar-track { background: transparent; }
-
-@media print {
-  /* Supprime la ligne pointillée de séparation */
-  .border-dashed, hr {
-    display: none !important;
-  }
-
-  /* Cache automatiquement le deuxième reçu (la deuxième copie dupliquée) */
-  /* On cible le 2ème grand conteneur de reçu s'il est dupliqué à l'identique */
-  body > div:nth-of-type(2), 
-  div[class*="receipt"]:nth-of-type(2),
-  section:nth-of-type(2) {
-    display: none !important;
-  }
-
-  /* Force le reçu unique à s'adapter proprement sur une seule feuille A4 */
-  body {
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Évite les sauts de page forcés */
-  div {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-}
