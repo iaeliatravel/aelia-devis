@@ -111,16 +111,16 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
   function buildHTML(): string {
     const guestRows = guests.map((g,i)=>`
       <tr>
-        ${i===0?`<td rowspan="${guests.length}" style="padding:14px 18px;vertical-align:top;width:34%">
-          <div style="font-weight:700;font-size:14px;color:#111827">${esc(roomType)}</div>
-          <div style="font-size:13px;color:#374151;margin-top:1px">${esc(boardLabel)}</div>
+        ${i===0?`<td rowspan="${guests.length}" style="padding:10px 14px;vertical-align:top;width:34%">
+          <div style="font-weight:700;font-size:13px;color:#111827">${esc(roomType)}</div>
+          <div style="font-size:12px;color:#374151;margin-top:1px">${esc(boardLabel)}</div>
         </td>`:''}
-        <td style="padding:${i===0?'14px':'4px'} 14px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#1f2937">${esc(g.name)||'&nbsp;'}</td>
-        <td style="padding:${i===0?'14px':'4px'} 18px ${i===guests.length-1?'14px':'4px'} 0;font-size:13px;color:#374151;text-align:right;white-space:nowrap">${esc(guestTypeLabel(g))}</td>
+        <td style="padding:${i===0?'10px':'3px'} 10px ${i===guests.length-1?'10px':'3px'} 0;font-size:12px;color:#1f2937">${esc(g.name)||'&nbsp;'}</td>
+        <td style="padding:${i===0?'10px':'3px'} 14px ${i===guests.length-1?'10px':'3px'} 0;font-size:12px;color:#374151;text-align:right;white-space:nowrap">${esc(guestTypeLabel(g))}</td>
       </tr>`).join('')
 
     const cancelItems = cancelLines.map(([l,v])=>
-      `<li style="margin-bottom:4px">${esc(l)} <span style="color:#ef4444">${esc(v)}</span></li>`
+      `<li style="margin-bottom:2px">${esc(l)} <span style="color:#ef4444">${esc(v)}</span></li>`
     ).join('')
 
     return `<!DOCTYPE html><html lang="en"><head>
@@ -128,104 +128,104 @@ export default function VoucherModal({ quote, agency, onClose }: Props) {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-@page{size:A4;margin:18mm 20mm}
-@media print{html,body{background:#fff!important;width:100%!important}}
-body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:13px;line-height:1.4;width:100%}
-.page{display:flex;flex-direction:column;min-height:250mm}
-.card{background:#eef1f6;border-radius:10px}
+@page{size:A4;margin:10mm 15mm}
+@media print{
+  html,body{background:#fff!important;width:100%!important;height:100%!important;overflow:hidden!important;}
+}
+body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:12px;line-height:1.35;width:100%}
+.page{display:flex;flex-direction:column;height:275mm;justify-content:space-between;}
+.card{background:#eef1f6;border-radius:8px}
 .gray{color:#9aa3af}
 .bold{font-weight:700;color:#111827}
 </style></head><body>
 <div class="page">
-
-  <!-- TOP: Voucher title + Reference block -->
-  <table style="width:100%;margin-bottom:18px">
-    <tr>
-      <td style="vertical-align:top">
-        <div style="font-size:27px;font-weight:800;color:#111827">Voucher ${esc(voucherNum)}</div>
-      </td>
-      <td style="text-align:right;vertical-align:top;width:230px">
-        <div class="gray" style="font-size:13px">Reference</div>
-        <div class="bold" style="font-size:13.5px;margin-top:1px;margin-bottom:9px">${esc(refNum)}</div>
-        <div class="gray" style="font-size:13px">Issued on</div>
-        <div style="font-size:13px;color:#1f2937;margin-top:1px;margin-bottom:9px">${fmtFull(today)}</div>
-        <div class="gray" style="font-size:13px">Stay</div>
-        <div style="font-size:13px;color:#1f2937;margin-top:1px;margin-bottom:10px">${esc(stayStr)}</div>
-        <div style="font-size:21px;font-weight:800;color:#ea580c">PENDING</div>
-      </td>
-    </tr>
-  </table>
-
-  <!-- ISSUED BY -->
-  <div class="gray" style="font-size:13px;margin-bottom:8px">Issued by:</div>
-  <div class="card" style="padding:14px 16px;margin-bottom:22px">
-    <table>
+  <div>
+    <!-- TOP: Voucher title + Reference block -->
+    <table style="width:100%;margin-bottom:12px">
       <tr>
-        <td style="width:60px;vertical-align:middle;padding-right:14px">
-          <div style="width:48px;height:48px;background:#f7941d;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:800;color:#fff;text-align:center;line-height:1.3;letter-spacing:0.3px">TRAVEL<br/>AGENCY</div>
+        <td style="vertical-align:top">
+          <div style="font-size:24px;font-weight:800;color:#111827">Voucher ${esc(voucherNum)}</div>
         </td>
-        <td style="vertical-align:middle">
-          <div class="bold" style="font-size:14.5px">${esc(agName)}</div>
-          ${agAddr  ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Address: ${esc(agAddr)}</div>` : ''}
-          ${agEmail ? `<div style="font-size:12.5px;color:#374151">Email: ${esc(agEmail)}</div>` : ''}
+        <td style="text-align:right;vertical-align:top;width:200px">
+          <div class="gray" style="font-size:12px">Reference</div>
+          <div class="bold" style="font-size:13px;margin-top:1px;margin-bottom:6px">${esc(refNum)}</div>
+          <div class="gray" style="font-size:12px">Issued on</div>
+          <div style="font-size:12px;color:#1f2937;margin-top:1px;margin-bottom:6px">${fmtFull(today)}</div>
+          <div class="gray" style="font-size:12px">Stay</div>
+          <div style="font-size:12px;color:#1f2937;margin-top:1px;margin-bottom:6px">${esc(stayStr)}</div>
+          <div style="font-size:18px;font-weight:800;color:#ea580c">PENDING</div>
         </td>
       </tr>
     </table>
-  </div>
 
-  <!-- HOTEL + HOLDER -->
-  <table style="width:100%;margin-bottom:22px">
-    <tr style="vertical-align:top">
-      <td style="width:50%">
-        <div class="bold" style="font-size:14.5px;margin-bottom:3px">${esc(hotelName)||'&nbsp;'}</div>
-        ${hotelAddr ? `<div style="font-size:12.5px;color:#374151">Address: ${esc(hotelAddr)}</div>` : ''}
-      </td>
-      <td style="width:50%">
-        <div class="bold" style="font-size:14.5px;margin-bottom:3px">Holder :</div>
-        <div class="bold" style="font-size:13.5px">${esc(clientName)||'&nbsp;'}</div>
-        ${clientAddr  ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Address: ${esc(clientAddr)}</div>` : ''}
-        ${clientPhone ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Phone: ${esc(clientPhone)}</div>` : ''}
-        ${agEmail     ? `<div style="font-size:12.5px;color:#374151;margin-top:2px">Email: ${esc(agEmail)}</div>` : ''}
-      </td>
-    </tr>
-  </table>
+    <!-- ISSUED BY -->
+    <div class="gray" style="font-size:12px;margin-bottom:6px">Issued by:</div>
+    <div class="card" style="padding:10px 14px;margin-bottom:14px">
+      <table>
+        <tr>
+          <td style="width:50px;vertical-align:middle;padding-right:10px">
+            <div style="width:40px;height:40px;background:#f7941d;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:800;color:#fff;text-align:center;line-height:1.2">TRAVEL<br/>AGENCY</div>
+          </td>
+          <td style="vertical-align:middle">
+            <div class="bold" style="font-size:13.5px">${esc(agName)}</div>
+            ${agAddr  ? `<div style="font-size:11.5px;color:#374151;margin-top:1px">Address: ${esc(agAddr)}</div>` : ''}
+            ${agEmail ? `<div style="font-size:11.5px;color:#374151">Email: ${esc(agEmail)}</div>` : ''}
+          </td>
+        </tr>
+      </table>
+    </div>
 
-  <!-- CHAMBRE + VOYAGEURS -->
-  <div class="card" style="margin-bottom:18px;overflow:hidden">
-    <table style="width:100%;border-collapse:collapse">${guestRows}</table>
-  </div>
+    <!-- HOTEL + HOLDER -->
+    <table style="width:100%;margin-bottom:14px">
+      <tr style="vertical-align:top">
+        <td style="width:50%">
+          <div class="bold" style="font-size:13.5px;margin-bottom:2px">${esc(hotelName)||'&nbsp;'}</div>
+          ${hotelAddr ? `<div style="font-size:11.5px;color:#374151">Address: ${esc(hotelAddr)}</div>` : ''}
+        </td>
+        <td style="width:50%">
+          <div class="bold" style="font-size:13.5px;margin-bottom:2px">Holder :</div>
+          <div class="bold" style="font-size:12.5px">${esc(clientName)||'&nbsp;'}</div>
+          ${clientAddr  ? `<div style="font-size:11.5px;color:#374151;margin-top:1px">Address: ${esc(clientAddr)}</div>` : ''}
+          ${clientPhone ? `<div style="font-size:11.5px;color:#374151;margin-top:1px">Phone: ${esc(clientPhone)}</div>` : ''}
+          ${agEmail     ? `<div style="font-size:11.5px;color:#374151;margin-top:1px">Email: ${esc(agEmail)}</div>` : ''}
+        </td>
+      </tr>
+    </table>
 
-  <!-- CANCELLATION POLICY -->
-  <div class="card" style="padding:14px 18px;margin-bottom:0">
-    <div class="bold" style="font-size:13.5px;margin-bottom:8px">Cancellation Policy</div>
-    <ul style="padding-left:18px;font-size:12.5px;color:#374151;list-style-type:disc">${cancelItems}</ul>
-    <div style="font-size:11.5px;color:#9aa3af;font-style:italic;text-align:center;margin-top:10px">
-      The date and time conform to the local time zone
+    <!-- CHAMBRE + VOYAGEURS -->
+    <div class="card" style="margin-bottom:12px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse">${guestRows}</table>
+    </div>
+
+    <!-- CANCELLATION POLICY -->
+    <div class="card" style="padding:10px 14px;margin-bottom:0">
+      <div class="bold" style="font-size:12.5px;margin-bottom:4px">Cancellation Policy</div>
+      <ul style="padding-left:16px;font-size:11.5px;color:#374151;list-style-type:disc">${cancelItems}</ul>
+      <div style="font-size:10.5px;color:#9aa3af;font-style:italic;text-align:center;margin-top:6px">
+        The date and time conform to the local time zone
+      </div>
     </div>
   </div>
 
-  <!-- SPACER pousse le footer en bas de page -->
-  <div style="flex:1"></div>
-
-  <!-- FOOTER — Flynbeds.com -->
-  <div>
-    <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:3px">Flynbeds.com</div>
-    <div style="font-size:12px;color:#374151;line-height:1.55">
-      Address : 09 Boulevard Zighou<br/>
-      D Yousef Constantine Algeria 25000<br/>
-      Email : Info@Flynbeds.dz<br/>
-      Helpdesk : Https://Support.flynbeds.net/<br/>
-      Phone : +213 (0) 671 31 09 27<br/>
-      Phone : +213 (0) 671 32 09 27<br/>
-      Phone : +213 (0) 560 00 15 47
-    </div>
-  </div>
-
-  <div style="text-align:center;margin-top:26px">
-    <div style="font-size:21px;font-weight:800">
-      <span style="color:#1e293b">flynbeds</span><span style="color:#ec4899">.com</span>
-    </div>
-    <div style="font-size:10px;color:#9aa3af;font-style:italic;margin-top:1px">One click and the world is yours</div>
+  <!-- FOOTER FIXE EN BAS DE PAGE (1 SEULE PAGE GARANTIE) -->
+  <div style="border-top:1px solid #e5e7eb;padding-top:8px;margin-top:10px;">
+    <table style="width:100%">
+      <tr>
+        <td style="vertical-align:top;width:60%">
+          <div style="font-size:12px;font-weight:700;color:#111827;margin-bottom:2px">Flynbeds.com</div>
+          <div style="font-size:10.5px;color:#374151;line-height:1.4">
+            Address : 09 Boulevard Zighou Yousef Constantine Algeria 25000<br/>
+            Email : Info@Flynbeds.dz | Phone : +213 (0) 671 31 09 27
+          </div>
+        </td>
+        <td style="text-align:right;vertical-align:middle;width:40%">
+          <div style="font-size:17px;font-weight:800">
+            <span style="color:#1e293b">flynbeds</span><span style="color:#ec4899">.com</span>
+          </div>
+          <div style="font-size:9.5px;color:#9aa3af;font-style:italic">One click and the world is yours</div>
+        </td>
+      </tr>
+    </table>
   </div>
 
 </div>
